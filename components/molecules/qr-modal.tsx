@@ -85,13 +85,19 @@ export function QRModal({ isOpen, onClose, data }: QRModalProps) {
       setIsGenerating(true);
       cleanupTimers();
       
-      const response = await fetch('/api/qr', {
+      // Use streaming API for better performance with large data
+      const useStreaming = data.length > 10000; // Use streaming for data > 10KB
+      const apiEndpoint = useStreaming ? '/api/qr-stream' : '/api/qr';
+      
+      const response = await fetch(apiEndpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          data
+          data,
+          fileName: `encoded-data-${Date.now()}.txt`,
+          contentType: 'text/plain'
         })
       });
       
@@ -104,9 +110,12 @@ export function QRModal({ isOpen, onClose, data }: QRModalProps) {
       setQrUrl(result.url);
       startTimer(); // Start 60s countdown
       
+      const isStreaming = result.streaming;
       toast({
         title: "QR Code generated",
-        description: "Valid for 60 seconds"
+        description: isStreaming 
+          ? `Streaming mode: ${result.streaming.totalChunks} chunks` 
+          : "Valid for 60 seconds"
       });
       
     } catch (error) {
