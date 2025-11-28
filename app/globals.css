@@ -1,26 +1,213 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* CEH Hacker Theme - Dark Matrix Style */
+  --background: 0 0% 5%; /* Very dark background */
+  --foreground: 120 100% 75%; /* Matrix green text */
+  --card: 0 0% 8%; /* Dark card background */
+  --card-foreground: 120 100% 85%; /* Bright green text on cards */
+  --popover: 0 0% 6%;
+  --popover-foreground: 120 100% 80%;
+  --primary: 120 100% 50%; /* Matrix green primary */
+  --primary-foreground: 0 0% 0%; /* Black text on green */
+  --secondary: 0 0% 12%; /* Dark grey secondary */
+  --secondary-foreground: 120 100% 75%;
+  --muted: 0 0% 10%;
+  --muted-foreground: 120 60% 60%; /* Dimmed green */
+  --accent: 120 100% 40%; /* Darker green accent */
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 100% 60%; /* Red for errors */
+  --destructive-foreground: 0 0% 98%;
+  --border: 120 50% 25%; /* Green border */
+  --input: 0 0% 10%; /* Dark input background */
+  --ring: 120 100% 50%; /* Green focus ring */
+  --chart-1: 120 100% 50%;
+  --chart-2: 160 80% 45%;
+  --chart-3: 60 100% 50%;
+  --chart-4: 200 80% 60%;
+  --chart-5: 300 70% 55%;
+  --radius: 0.5rem;
+  
+  /* Hacker theme specific colors */
+  --matrix-green: 120 100% 50%;
+  --matrix-dark-green: 120 100% 25%;
+  --terminal-bg: 0 0% 3%;
+  --terminal-text: 120 100% 75%;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+.dark {
+  /* Same theme for dark mode - CEH is always dark */
+  --background: 0 0% 5%;
+  --foreground: 120 100% 75%;
+  --card: 0 0% 8%;
+  --card-foreground: 120 100% 85%;
+  --popover: 0 0% 6%;
+  --popover-foreground: 120 100% 80%;
+  --primary: 120 100% 50%;
+  --primary-foreground: 0 0% 0%;
+  --secondary: 0 0% 12%;
+  --secondary-foreground: 120 100% 75%;
+  --muted: 0 0% 10%;
+  --muted-foreground: 120 60% 60%;
+  --accent: 120 100% 40%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 100% 60%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 120 50% 25%;
+  --input: 0 0% 10%;
+  --ring: 120 100% 50%;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  border-color: hsl(var(--border));
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: 'Courier New', monospace;
+  position: relative;
+}
+
+/* Matrix rain effect background */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(ellipse at center, rgba(0, 255, 0, 0.05) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* Hacker terminal effect */
+.hacker-terminal {
+  background: linear-gradient(135deg, hsl(var(--terminal-bg)) 0%, hsl(0 0% 1%) 100%);
+  border: 1px solid hsl(var(--matrix-green));
+  box-shadow: 
+    0 0 20px rgba(0, 255, 0, 0.3),
+    inset 0 0 20px rgba(0, 255, 0, 0.1);
+  position: relative;
+}
+
+.hacker-terminal::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 255, 0, 0.03) 2px,
+    rgba(0, 255, 0, 0.03) 4px
+  );
+  pointer-events: none;
+}
+
+/* Glowing text effect */
+.glow-text {
+  text-shadow: 
+    0 0 5px hsl(var(--matrix-green)),
+    0 0 10px hsl(var(--matrix-green)),
+    0 0 15px hsl(var(--matrix-green));
+}
+
+/* Matrix button effect */
+.matrix-button {
+  background: linear-gradient(135deg, hsl(var(--matrix-dark-green)) 0%, hsl(var(--matrix-green)) 100%);
+  border: 1px solid hsl(var(--matrix-green));
+  box-shadow: 
+    0 0 10px rgba(0, 255, 0, 0.5),
+    inset 0 0 10px rgba(0, 255, 0, 0.1);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.matrix-button::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(45deg, transparent, rgba(0, 255, 0, 0.4), transparent);
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.matrix-button:hover::before {
+  opacity: 1;
+  animation: matrix-glow 0.6s ease-in-out;
+}
+
+.matrix-button:hover {
+  box-shadow: 
+    0 0 20px rgba(0, 255, 0, 0.8),
+    inset 0 0 20px rgba(0, 255, 0, 0.2);
+  transform: translateY(-2px);
+}
+
+/* Typing animation */
+@keyframes typing {
+  from { width: 0; }
+  to { width: 100%; }
+}
+
+@keyframes blink {
+  0%, 50% { border-color: transparent; }
+  51%, 100% { border-color: hsl(var(--matrix-green)); }
+}
+
+.typing-effect {
+  overflow: hidden;
+  white-space: nowrap;
+  border-right: 2px solid hsl(var(--matrix-green));
+  animation: typing 2s steps(40) 1s forwards, blink 1s infinite;
+}
+
+/* Matrix glow animation */
+@keyframes matrix-glow {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* Pulsing effect */
+@keyframes pulse-green {
+  0%, 100% { 
+    box-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+  }
+  50% { 
+    box-shadow: 0 0 20px rgba(0, 255, 0, 0.8), 0 0 30px rgba(0, 255, 0, 0.6);
+  }
+}
+
+.pulse-effect {
+  animation: pulse-green 2s ease-in-out infinite;
+}
+
+/* Scanline effect */
+.scanlines {
+  position: relative;
+}
+
+.scanlines::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    transparent 50%, 
+    rgba(0, 255, 0, 0.1) 50%
+  );
+  background-size: 100% 4px;
+  pointer-events: none;
 }
