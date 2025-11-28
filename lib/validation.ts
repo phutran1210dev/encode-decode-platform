@@ -20,7 +20,9 @@ export const FILE_VALIDATION = {
     'text/javascript',
     'application/javascript',
     'text/xml',
-    'application/xml'
+    'application/xml',
+    'application/zip',
+    'application/x-zip-compressed'
   ],
   MAX_FILENAME_LENGTH: 255,
   DANGEROUS_EXTENSIONS: ['.exe', '.bat', '.com', '.scr', '.pif', '.cmd']

@@ -6,6 +6,7 @@ import {
   isValidEncodedData,
   isValidFileData 
 } from '@/types';
+import JSZip from 'jszip';
 
 // Maximum file size (10MB)
 export const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -38,9 +39,87 @@ export const readFileAsText = (file: File): Promise<string> => {
   });
 };
 
+export const readFileAsArrayBuffer = (file: File): Promise<ArrayBuffer> => {
+  return new Promise((resolve, reject) => {
+    if (!file || !(file instanceof File)) {
+      reject(new ValidationError('Invalid file: must be a File object'));
+      return;
+    }
+    
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+      const result = e.target?.result;
+      if (!(result instanceof ArrayBuffer)) {
+        reject(new FileProcessingError('Failed to read file as ArrayBuffer'));
+        return;
+      }
+      resolve(result);
+    };
+    
+    reader.onerror = () => {
+      reject(new FileProcessingError(`Failed to read file: ${file.name}`));
+    };
+    
+    reader.readAsArrayBuffer(file);
+  });
+};
+
+export const extractZipFile = async (zipFile: File): Promise<FileData[]> => {
+  try {
+    const arrayBuffer = await readFileAsArrayBuffer(zipFile);
+    const zip = await JSZip.loadAsync(arrayBuffer);
+    
+    const extractedFiles: FileData[] = [];
+    
+    // Use JSZip's forEach method for proper typing
+    await Promise.all(
+      Object.entries(zip.files).map(async ([relativePath, zipEntry]) => {
+        // Skip directories and hidden files
+        if (zipEntry.dir || relativePath.startsWith('.') || relativePath.includes('__MACOSX')) {
+          return;
+        }
+        
+        try {
+          const content = await zipEntry.async('text');
+          const fileName = relativePath.split('/').pop() || relativePath;
+          
+          extractedFiles.push({
+            name: `[${zipFile.name}] ${fileName}`,
+            content,
+            size: content.length,
+            type: 'text/plain', // Default type for extracted files
+            lastModified: zipEntry.date?.getTime() || Date.now(),
+          });
+        } catch (error) {
+          // Skip binary files or files that can't be read as text
+          console.warn(`Skipping file ${relativePath}:`, error);
+        }
+      })
+    );
+    
+    if (extractedFiles.length === 0) {
+      throw new FileProcessingError('No readable text files found in ZIP archive');
+    }
+    
+    return extractedFiles;
+  } catch (error) {
+    if (error instanceof FileProcessingError) {
+      throw error;
+    }
+    throw new FileProcessingError(`Failed to extract ZIP file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+};
+
+export const isZipFile = (file: File): boolean => {
+  return file.type === 'application/zip' || 
+         file.type === 'application/x-zip-compressed' || 
+         file.name.toLowerCase().endsWith('.zip');
+};
+
 export const processFiles = async (files: FileList | null): Promise<FileData[]> => {
   if (!files || files.length === 0) {
-    throw new Error('No files provided');
+    throw new ValidationError('No files provided');
   }
   
   const fileArray = Array.from(files);
@@ -50,22 +129,37 @@ export const processFiles = async (files: FileList | null): Promise<FileData[]> 
   
   for (const file of fileArray) {
     if (file.size > MAX_FILE_SIZE) {
-      throw new Error(`File "${file.name}" is too large (max: ${MAX_FILE_SIZE / 1024 / 1024}MB)`);
+      throw new ValidationError(`File "${file.name}" is too large (max: ${MAX_FILE_SIZE / 1024 / 1024}MB)`);
     }
     
     totalSize += file.size;
     if (totalSize > MAX_TOTAL_SIZE) {
-      throw new Error(`Total file size exceeds limit (max: ${MAX_TOTAL_SIZE / 1024 / 1024}MB)`);
+      throw new ValidationError(`Total file size exceeds limit (max: ${MAX_TOTAL_SIZE / 1024 / 1024}MB)`);
     }
     
-    const content = await readFileAsText(file);
-    processedFiles.push({
-      name: file.name,
-      content,
-      size: file.size,
-      type: file.type,
-      lastModified: file.lastModified,
-    });
+    // Handle ZIP files differently
+    if (isZipFile(file)) {
+      try {
+        const extractedFiles = await extractZipFile(file);
+        processedFiles.push(...extractedFiles);
+      } catch (error) {
+        throw new FileProcessingError(`Failed to process ZIP file "${file.name}": ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    } else {
+      // Handle regular text files
+      try {
+        const content = await readFileAsText(file);
+        processedFiles.push({
+          name: file.name,
+          content,
+          size: file.size,
+          type: file.type,
+          lastModified: file.lastModified,
+        });
+      } catch (error) {
+        throw new FileProcessingError(`Failed to read file "${file.name}": ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }
   }
   
   return processedFiles;
