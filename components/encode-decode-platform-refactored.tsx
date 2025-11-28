@@ -200,7 +200,7 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
   };
 
   const handleDownloadSingle = (file: FileData) => {
-    downloadFile(file.content, file.name);
+    downloadFile(file.content, file.name, file.isBinary);
     toast({
       title: "File downloaded",
       description: `${file.name} downloaded successfully`,

@@ -81,18 +81,44 @@ export const extractZipFile = async (zipFile: File): Promise<FileData[]> => {
         }
         
         try {
-          const content = await zipEntry.async('text');
           const fileName = relativePath.split('/').pop() || relativePath;
+          
+          // Determine if this is likely a binary file based on extension
+          const isBinary = /\.(jpg|jpeg|png|gif|bmp|pdf|doc|docx|xls|xlsx|zip|exe|dll|bin)$/i.test(fileName);
+          
+          let content: string;
+          let fileType: string;
+          let size: number;
+          
+          if (isBinary) {
+            // For binary files, get as base64 data URL
+            const arrayBuffer = await zipEntry.async('arraybuffer');
+            const blob = new Blob([arrayBuffer]);
+            const dataUrl = await new Promise<string>((resolve) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(reader.result as string);
+              reader.readAsDataURL(blob);
+            });
+            content = dataUrl;
+            size = arrayBuffer.byteLength;
+            fileType = 'application/octet-stream'; // Generic binary type
+          } else {
+            // For text files, read as text
+            content = await zipEntry.async('text');
+            size = content.length;
+            fileType = 'text/plain';
+          }
           
           extractedFiles.push({
             name: `[${zipFile.name}] ${fileName}`,
             content,
-            size: content.length,
-            type: 'text/plain', // Default type for extracted files
+            size,
+            type: fileType,
             lastModified: zipEntry.date?.getTime() || Date.now(),
+            isBinary,
           });
         } catch (error) {
-          // Skip binary files or files that can't be read as text
+          // Skip files that can't be processed
           console.warn(`Skipping file ${relativePath}:`, error);
         }
       })
@@ -115,6 +141,58 @@ export const isZipFile = (file: File): boolean => {
   return file.type === 'application/zip' || 
          file.type === 'application/x-zip-compressed' || 
          file.name.toLowerCase().endsWith('.zip');
+};
+
+export const isBinaryFile = (file: File): boolean => {
+  // Check MIME type first
+  if (file.type.startsWith('image/') || 
+      file.type.startsWith('video/') || 
+      file.type.startsWith('audio/') ||
+      file.type === 'application/pdf' ||
+      file.type === 'application/zip' ||
+      file.type === 'application/octet-stream') {
+    return true;
+  }
+  
+  // Check file extensions for common binary files
+  const binaryExtensions = [
+    '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg',
+    '.mp4', '.avi', '.mov', '.wmv', '.flv', '.mkv',
+    '.mp3', '.wav', '.flac', '.aac', '.ogg',
+    '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+    '.zip', '.rar', '.7z', '.tar', '.gz',
+    '.exe', '.dll', '.so', '.dylib'
+  ];
+  
+  const fileName = file.name.toLowerCase();
+  return binaryExtensions.some(ext => fileName.endsWith(ext));
+};
+
+export const readFileAsBinary = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    if (!file || !(file instanceof File)) {
+      reject(new ValidationError('Invalid file: must be a File object'));
+      return;
+    }
+    
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+      const result = e.target?.result;
+      if (typeof result !== 'string') {
+        reject(new FileProcessingError('Failed to read file as binary'));
+        return;
+      }
+      resolve(result);
+    };
+    
+    reader.onerror = () => {
+      reject(new FileProcessingError(`Failed to read file: ${file.name}`));
+    };
+    
+    // Use readAsDataURL for binary files to preserve data integrity
+    reader.readAsDataURL(file);
+  });
 };
 
 export const processFiles = async (
@@ -154,18 +232,31 @@ export const processFiles = async (
         throw new FileProcessingError(`Failed to process ZIP file "${file.name}": ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     } else {
-      // Handle regular text files
+      // Handle regular files - detect if binary or text
       try {
-        const content = await readFileAsText(file);
+        let content: string;
+        const isBinary = isBinaryFile(file);
+        
+        if (isBinary) {
+          // Read binary files as data URL to preserve integrity
+          content = await readFileAsBinary(file);
+          console.log(`Reading binary file: ${file.name} (${file.type})`);
+        } else {
+          // Read text files normally
+          content = await readFileAsText(file);
+          console.log(`Reading text file: ${file.name}`);
+        }
+
         processedFiles.push({
           name: file.name,
           content,
           size: file.size,
-          type: file.type,
+          type: file.type || 'text/plain',
           lastModified: file.lastModified,
+          isBinary,
         });
       } catch (error) {
-        throw new FileProcessingError(`Failed to read file "${file.name}": ${error instanceof Error ? error.message : 'Unknown error'}`);
+        throw new FileProcessingError(`Failed to process file "${file.name}": ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }
     
@@ -240,7 +331,7 @@ export const decodeFromBase64 = (base64String: string): EncodedData => {
   }
 };
 
-export const downloadFile = (content: string, filename: string) => {
+export const downloadFile = (content: string, filename: string, isBinary: boolean = false) => {
   if (!content || typeof content !== 'string') {
     throw new ValidationError('Invalid content: must be a non-empty string');
   }
@@ -250,8 +341,17 @@ export const downloadFile = (content: string, filename: string) => {
   }
   
   try {
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
+    let url: string;
+    
+    if (isBinary && content.startsWith('data:')) {
+      // For binary files stored as data URLs, use the data URL directly
+      url = content;
+    } else {
+      // For text files, create a blob
+      const blob = new Blob([content], { type: isBinary ? 'application/octet-stream' : 'text/plain' });
+      url = URL.createObjectURL(blob);
+    }
+    
     const a = document.createElement('a');
     a.href = url;
     a.download = filename;
@@ -259,7 +359,11 @@ export const downloadFile = (content: string, filename: string) => {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    
+    // Only revoke URL if we created it (not for data URLs)
+    if (!content.startsWith('data:')) {
+      URL.revokeObjectURL(url);
+    }
   } catch (error) {
     if (error instanceof Error) {
       throw new FileProcessingError(`Failed to download file: ${error.message}`);
@@ -270,7 +374,7 @@ export const downloadFile = (content: string, filename: string) => {
 
 export const downloadAllFiles = (files: readonly FileData[]) => {
   files.forEach(file => {
-    downloadFile(file.content, file.name);
+    downloadFile(file.content, file.name, file.isBinary);
   });
 };
 

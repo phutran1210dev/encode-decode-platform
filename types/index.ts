@@ -5,6 +5,7 @@ export interface FileData {
   readonly size: number;
   readonly type: string;
   readonly lastModified: number;
+  readonly isBinary?: boolean;
 }
 
 export interface EncodedData {
@@ -65,7 +66,8 @@ export const isValidFileData = (data: unknown): data is FileData => {
     typeof obj.content === 'string' &&
     isPositiveNumber(obj.size) &&
     typeof obj.type === 'string' &&
-    isSafeInteger(obj.lastModified)
+    isSafeInteger(obj.lastModified) &&
+    (obj.isBinary === undefined || typeof obj.isBinary === 'boolean')
   );
 };
 
