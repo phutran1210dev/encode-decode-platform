@@ -47,34 +47,60 @@ export async function POST(request: NextRequest) {
     
     const { data } = requestData;
     
-    if (!data || typeof data !== 'string') {
+    // Input validation
+    if (!data) {
       return NextResponse.json(
-        { error: 'Data is required and must be a string' }, 
+        { error: 'Data is required', code: 'MISSING_DATA' }, 
         { status: 400 }
       );
     }
     
-    // Support files up to 5MB (5 * 1024 * 1024 characters)
-    const MAX_DATA_SIZE = 5 * 1024 * 1024; // 5MB in characters
-    if (data.length > MAX_DATA_SIZE) {
+    if (typeof data !== 'string') {
       return NextResponse.json(
-        { error: `Data too large. Maximum size is 5MB (${MAX_DATA_SIZE} characters). Current size: ${data.length} characters.` },
-        { status: 413 } // Payload Too Large
+        { error: 'Data must be a string', code: 'INVALID_TYPE' }, 
+        { status: 400 }
+      );
+    }
+    
+    // Sanitize input data
+    const sanitizedData = data.trim();
+    if (sanitizedData.length === 0) {
+      return NextResponse.json(
+        { error: 'Data cannot be empty', code: 'EMPTY_DATA' }, 
+        { status: 400 }
+      );
+    }
+    
+    // Size validation with proper constants
+    const MAX_DATA_SIZE = 5 * 1024 * 1024; // 5MB
+    if (sanitizedData.length > MAX_DATA_SIZE) {
+      return NextResponse.json(
+        { 
+          error: 'Data exceeds maximum size limit',
+          code: 'SIZE_LIMIT_EXCEEDED',
+          details: {
+            maxSize: MAX_DATA_SIZE,
+            currentSize: sanitizedData.length,
+            maxSizeMB: '5MB'
+          }
+        },
+        { status: 413 }
       );
     }
     
     // Handle large data with compression and chunking
-    let processedData = data;
+    let processedData = sanitizedData;
     let isCompressed = false;
     let isChunked = false;
+    let expirationTime = 10 * 60 * 1000; // Default 10 minutes
     
-    console.log(`Original data size: ${data.length} characters`);
+    console.log(`Original data size: ${sanitizedData.length} characters`);
     
     // Always try compression for data over 500 chars
-    if (data.length > 500) {
+    if (sanitizedData.length > 500) {
       try {
         // Enhanced compression algorithm
-        let compressed = data
+        let compressed = sanitizedData
           .replace(/\s+/g, ' ') // Replace multiple spaces with single space
           .replace(/={2,}/g, '=') // Replace multiple = with single =
           .replace(/\+{2,}/g, '+') // Replace multiple + with single +
@@ -102,13 +128,13 @@ export async function POST(request: NextRequest) {
             .replace(/\s*\]/g, ']'); // Remove spaces before closing brackets
         }
         
-        if (compressed.length < data.length) {
+        if (compressed.length < sanitizedData.length) {
           processedData = compressed;
           isCompressed = true;
-          console.log(`Data compressed from ${data.length} to ${compressed.length} chars (${Math.round((1 - compressed.length/data.length) * 100)}% reduction)`);
+          console.log(`Data compressed from ${sanitizedData.length} to ${compressed.length} chars (${Math.round((1 - compressed.length/sanitizedData.length) * 100)}% reduction)`);
         }
-      } catch (error) {
-        console.log('Compression failed, using original data');
+      } catch (compressionError) {
+        console.log('Compression failed, using original data:', compressionError instanceof Error ? compressionError.message : 'Unknown error');
       }
     }
     
@@ -120,7 +146,7 @@ export async function POST(request: NextRequest) {
       // Store in a simple in-memory cache (you could use Redis/Database in production)
       globalThis.qrDataCache = globalThis.qrDataCache || new Map<string, CacheEntry>();
       // Longer expiration for large files (30 minutes)
-      const expirationTime = data.length > 1000000 ? (30 * 60 * 1000) : (10 * 60 * 1000);
+      expirationTime = sanitizedData.length > 1000000 ? (30 * 60 * 1000) : (10 * 60 * 1000);
       
       globalThis.qrDataCache.set(dataId, {
         data: data,
@@ -137,7 +163,7 @@ export async function POST(request: NextRequest) {
       
       processedData = dataId;
       isChunked = true;
-      console.log(`Large data (${data.length} chars) stored with ID: ${dataId}`);
+      console.log(`Large data (${sanitizedData.length} chars) stored with ID: ${dataId}`);
       console.log(`Cache now has ${globalThis.qrDataCache.size} entries`);
     }
     
@@ -219,13 +245,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       qrCode: qrCodeDataURL,
       url: targetUrl,
-      data: data,
+      data: sanitizedData,
       environment: host.includes('localhost') || host.includes('127.0.0.1') ? 'development' : 'production',
       processing: {
-        originalSize: data.length,
+        originalSize: sanitizedData.length,
         processedSize: processedData.length,
         isCompressed,
-        isChunked
+        isChunked,
+        compressionRatio: isCompressed ? Math.round((1 - processedData.length/sanitizedData.length) * 100) : 0
+      },
+      metadata: {
+        timestamp: Date.now(),
+        expiresIn: isChunked ? expirationTime : null
+      }
+    }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'DENY'
       }
     });
     

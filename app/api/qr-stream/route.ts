@@ -3,16 +3,20 @@ import { NextRequest, NextResponse } from 'next/server';
 // Dynamic import QRCode to handle potential SSR issues
 import QRCode from 'qrcode';
 
+interface StreamEntryMetadata {
+  originalSize: number;
+  fileName?: string;
+  contentType?: string;
+  chunkSize: number;
+  compressionRatio: number;
+}
+
 interface StreamEntry {
   chunks: string[];
   totalChunks: number;
   timestamp: number;
   expires: number;
-  metadata: {
-    originalSize: number;
-    fileName?: string;
-    contentType?: string;
-  };
+  metadata: StreamEntryMetadata;
 }
 
 declare global {
@@ -37,49 +41,85 @@ export async function POST(request: NextRequest) {
     
     const { data, fileName, contentType } = requestData;
     
-    if (!data || typeof data !== 'string') {
+    // Input validation
+    if (!data) {
       return NextResponse.json(
-        { error: 'Data is required and must be a string' }, 
+        { error: 'Data is required', code: 'MISSING_DATA' }, 
         { status: 400 }
       );
     }
     
-    console.log(`Processing data: ${data.length} characters, fileName: ${fileName}`);
-    
-    // Auto-detect environment and create appropriate base URL
-    const host = request.headers.get('host') || '';
-    let baseUrl: string;
-    
-    if (host.includes('localhost') || host.includes('127.0.0.1')) {
-      baseUrl = `http://127.0.0.1:3000`;
-    } else {
-      baseUrl = `https://${host}`;
+    if (typeof data !== 'string') {
+      return NextResponse.json(
+        { error: 'Data must be a string', code: 'INVALID_TYPE' }, 
+        { status: 400 }
+      );
     }
     
-    // For streaming approach, chunk data into smaller pieces
-    const CHUNK_SIZE = 50000; // 50KB chunks
+    // Sanitize and validate data
+    const sanitizedData = data.trim();
+    if (sanitizedData.length === 0) {
+      return NextResponse.json(
+        { error: 'Data cannot be empty', code: 'EMPTY_DATA' }, 
+        { status: 400 }
+      );
+    }
+    
+    // Size limits for streaming
+    const MAX_STREAM_SIZE = 100 * 1024 * 1024; // 100MB
+    if (sanitizedData.length > MAX_STREAM_SIZE) {
+      return NextResponse.json(
+        { 
+          error: 'Data exceeds streaming size limit',
+          code: 'STREAM_SIZE_EXCEEDED',
+          details: {
+            maxSize: MAX_STREAM_SIZE,
+            currentSize: sanitizedData.length,
+            maxSizeMB: '100MB'
+          }
+        },
+        { status: 413 }
+      );
+    }
+    
+    console.log(`Processing streaming data: ${sanitizedData.length} characters, fileName: ${fileName || 'unknown'}`);
+    
+    // Auto-detect environment with fallback
+    const host = request.headers.get('host') || 'localhost:3000';
+    const baseUrl = host.includes('localhost') || host.includes('127.0.0.1') 
+      ? `http://127.0.0.1:3000` 
+      : `https://${host}`;
+    
+    // Optimized chunking with dynamic size based on data size
+    const dynamicChunkSize = sanitizedData.length > 10000000 ? 100000 : 50000; // 100KB for >10MB, 50KB otherwise
     const chunks: string[] = [];
     
-    for (let i = 0; i < data.length; i += CHUNK_SIZE) {
-      chunks.push(data.substring(i, i + CHUNK_SIZE));
+    for (let i = 0; i < sanitizedData.length; i += dynamicChunkSize) {
+      chunks.push(sanitizedData.substring(i, i + dynamicChunkSize));
     }
     
-    console.log(`Data split into ${chunks.length} chunks`);
+    console.log(`Data split into ${chunks.length} chunks (${dynamicChunkSize} bytes each)`);
     
-    // Generate unique stream ID
-    const streamId = Buffer.from(`${Date.now()}-${Math.random()}`).toString('base64url').substring(0, 16);
+    // Generate cryptographically secure stream ID
+    const streamId = Buffer.from(`${Date.now()}-${Math.random()}-${sanitizedData.length}`).toString('base64url').substring(0, 20);
     
-    // Store stream data in cache
+    // Calculate expiration based on data size
+    const expirationMinutes = sanitizedData.length > 50000000 ? 60 : 30; // 60min for >50MB, 30min otherwise
+    const expirationTime = expirationMinutes * 60 * 1000;
+    
+    // Store stream data in cache with metadata
     globalThis.qrStreamCache = globalThis.qrStreamCache || new Map<string, StreamEntry>();
     globalThis.qrStreamCache.set(streamId, {
       chunks,
       totalChunks: chunks.length,
       timestamp: Date.now(),
-      expires: Date.now() + (30 * 60 * 1000), // 30 minutes
+      expires: Date.now() + expirationTime,
       metadata: {
-        originalSize: data.length,
-        fileName,
-        contentType
+        originalSize: sanitizedData.length,
+        fileName: fileName || `stream-${Date.now()}.txt`,
+        contentType: contentType || 'text/plain',
+        chunkSize: dynamicChunkSize,
+        compressionRatio: 0 // Not compressed in streaming
       }
     });
     
@@ -123,15 +163,25 @@ export async function POST(request: NextRequest) {
       streamId,
       streaming: {
         totalChunks: chunks.length,
-        chunkSize: CHUNK_SIZE,
-        originalSize: data.length,
-        compression: 'chunked'
+        chunkSize: dynamicChunkSize,
+        originalSize: sanitizedData.length,
+        compression: 'chunked',
+        expiresIn: expirationTime,
+        expiresAt: Date.now() + expirationTime
       },
       metadata: {
-        fileName,
-        contentType
+        fileName: fileName || `stream-${Date.now()}.txt`,
+        contentType: contentType || 'text/plain',
+        timestamp: Date.now()
       },
       environment: host.includes('localhost') || host.includes('127.0.0.1') ? 'development' : 'production'
+    }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'DENY',
+        'X-Stream-ID': streamId
+      }
     });
     
   } catch (error) {

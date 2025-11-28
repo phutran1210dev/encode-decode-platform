@@ -1,19 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+interface StreamEntryMetadata {
+  originalSize: number;
+  fileName?: string;
+  contentType?: string;
+  chunkSize: number;
+  compressionRatio: number;
+}
+
 interface StreamEntry {
   chunks: string[];
   totalChunks: number;
   timestamp: number;
   expires: number;
-  metadata: {
-    originalSize: number;
-    fileName?: string;
-    contentType?: string;
-  };
-}
-
-declare global {
-  var qrStreamCache: Map<string, StreamEntry> | undefined;
+  metadata: StreamEntryMetadata;
 }
 
 export async function GET(
