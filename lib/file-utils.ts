@@ -117,15 +117,20 @@ export const isZipFile = (file: File): boolean => {
          file.name.toLowerCase().endsWith('.zip');
 };
 
-export const processFiles = async (files: FileList | null): Promise<FileData[]> => {
+export const processFiles = async (
+  files: FileList | null, 
+  onProgress?: (progress: number, fileName?: string) => void
+): Promise<FileData[]> => {
   if (!files || files.length === 0) {
     throw new ValidationError('No files provided');
   }
   
   const fileArray = Array.from(files);
   const processedFiles: FileData[] = [];
+  const totalFiles = fileArray.length;
   
   let totalSize = 0;
+  let processedCount = 0;
   
   for (const file of fileArray) {
     if (file.size > MAX_FILE_SIZE) {
@@ -136,6 +141,9 @@ export const processFiles = async (files: FileList | null): Promise<FileData[]> 
     if (totalSize > MAX_TOTAL_SIZE) {
       throw new ValidationError(`Total file size exceeds limit (max: ${MAX_TOTAL_SIZE / 1024 / 1024}MB)`);
     }
+    
+    // Update progress
+    onProgress?.(Math.round((processedCount / totalFiles) * 100), file.name);
     
     // Handle ZIP files differently
     if (isZipFile(file)) {
@@ -160,7 +168,13 @@ export const processFiles = async (files: FileList | null): Promise<FileData[]> 
         throw new FileProcessingError(`Failed to read file "${file.name}": ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }
+    
+    processedCount++;
+    onProgress?.(Math.round((processedCount / totalFiles) * 100), file.name);
   }
+  
+  // Complete
+  onProgress?.(100);
   
   return processedFiles;
 };

@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useRef } from 'react';
-import { MatrixCard, MatrixButton } from '@/components/atoms';
+import { MatrixCard, MatrixButton, MatrixProgress } from '@/components/atoms';
 import { 
   InputModeSelector, 
   FileUploadButtons, 
@@ -21,6 +21,8 @@ interface DataInputSectionProps {
   onEncode: () => void;
   onReset: () => void;
   isEncoding: boolean;
+  uploadProgress?: number;
+  currentFileName?: string;
 }
 
 export function DataInputSection({
@@ -32,7 +34,9 @@ export function DataInputSection({
   onFileSelect,
   onEncode,
   onReset,
-  isEncoding
+  isEncoding,
+  uploadProgress,
+  currentFileName
 }: DataInputSectionProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);

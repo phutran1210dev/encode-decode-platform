@@ -24,6 +24,10 @@ export default function EncodeDecode() {
   const [inputMode, setInputMode] = useState<'manual' | 'file'>('file');
   const [manualText, setManualText] = useState<string>('');
   
+  // Upload progress state
+  const [uploadProgress, setUploadProgress] = useState<number | undefined>(undefined);
+  const [currentFileName, setCurrentFileName] = useState<string | undefined>(undefined);
+  
   // Decoder state
   const [base64Input, setBase64Input] = useState<string>('');
   const [decodedData, setDecodedData] = useState<EncodedData | null>(null);
@@ -34,14 +38,30 @@ export default function EncodeDecode() {
     
     try {
       setIsEncoding(true);
-      const processedFiles = await processFiles(files);
+      setUploadProgress(0);
+      setCurrentFileName(undefined);
+      
+      const processedFiles = await processFiles(files, (progress, fileName) => {
+        setUploadProgress(progress);
+        setCurrentFileName(fileName);
+      });
+      
       setSelectedFiles(processedFiles);
+      
+      // Hide progress bar after completion
+      setTimeout(() => {
+        setUploadProgress(undefined);
+        setCurrentFileName(undefined);
+      }, 1000);
       
       toast({
         title: "Files loaded successfully",
         description: `${processedFiles.length} files ready for encoding`,
       });
     } catch (error) {
+      setUploadProgress(undefined);
+      setCurrentFileName(undefined);
+      
       toast({
         title: "Error loading files",
         description: error instanceof Error ? error.message : "Unknown error",
@@ -207,6 +227,8 @@ export default function EncodeDecode() {
           onEncode={handleEncode}
           onCopyEncoded={handleCopyEncoded}
           isEncoding={isEncoding}
+          uploadProgress={uploadProgress}
+          currentFileName={currentFileName}
           base64Input={base64Input}
           onBase64InputChange={setBase64Input}
           decodedData={decodedData}

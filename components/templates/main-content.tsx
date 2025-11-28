@@ -23,6 +23,8 @@ interface MainContentProps {
   onEncode: () => void;
   onCopyEncoded: () => void;
   isEncoding: boolean;
+  uploadProgress?: number;
+  currentFileName?: string;
   
   // Decode section props
   base64Input: string;
@@ -48,6 +50,8 @@ export function MainContent({
   onEncode,
   onCopyEncoded,
   isEncoding,
+  uploadProgress,
+  currentFileName,
   base64Input,
   onBase64InputChange,
   decodedData,
@@ -78,19 +82,19 @@ export function MainContent({
 
       <TabsContent value="encode">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <DataInputSection
-            inputMode={inputMode}
-            onInputModeChange={onInputModeChange}
-            manualText={manualText}
-            onManualTextChange={onManualTextChange}
-            selectedFiles={selectedFiles}
-            onFileSelect={onFileSelect}
-            onEncode={onEncode}
-            onReset={onReset}
-            isEncoding={isEncoding}
-          />
-          
-          <EncodedOutputSection
+            <DataInputSection
+              inputMode={inputMode}
+              onInputModeChange={onInputModeChange}
+              manualText={manualText}
+              onManualTextChange={onManualTextChange}
+              selectedFiles={selectedFiles}
+              onFileSelect={onFileSelect}
+              onEncode={onEncode}
+              onReset={onReset}
+              isEncoding={isEncoding}
+              uploadProgress={uploadProgress}
+              currentFileName={currentFileName}
+            />          <EncodedOutputSection
             encodedData={encodedBase64}
             onCopy={onCopyEncoded}
           />
