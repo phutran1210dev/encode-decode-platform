@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import EncodeDecode from '@/components/encode-decode-platform-refactored';
+import EncodeDecode from '@/components/encode-decode';
 import { Suspense } from 'react';
 
 function DecodePageContent() {

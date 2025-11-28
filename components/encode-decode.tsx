@@ -1,18 +1,20 @@
 "use client"
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import MatrixRain from '@/components/matrix-effects';
 import { HeaderSection, MainContent } from '@/components/templates';
-import {
-  processFiles,
-  encodeToBase64,
-  decodeFromBase64,
-  downloadFile,
-  downloadAllFiles,
-  copyToClipboard,
-} from '@/lib/file-utils';
+import { copyToClipboard } from '@/lib/file-utils';
 import { FileData, EncodedData } from '@/types';
+// SOLID Principles: Dependency Injection
+import {
+  createFileProcessingService,
+  createDownloadService,
+  createImageService,
+  type IFileProcessingService,
+  type IDownloadService,
+  type IImageService
+} from '@/lib/services';
 
 interface EncodeDecodeProps {
   autoFillData?: string;
@@ -20,6 +22,11 @@ interface EncodeDecodeProps {
 
 export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
   const { toast } = useToast();
+  
+  // SOLID Principles: Dependency Injection - Services are injected at runtime
+  const fileProcessingService = useMemo<IFileProcessingService>(() => createFileProcessingService(), []);
+  const downloadService = useMemo<IDownloadService>(() => createDownloadService(), []);
+  const imageService = useMemo<IImageService>(() => createImageService(), []);
   
   // Encoder state
   const [selectedFiles, setSelectedFiles] = useState<FileData[]>([]);
@@ -58,7 +65,7 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
       setUploadProgress(0);
       setCurrentFileName(undefined);
       
-      const processedFiles = await processFiles(files, (progress, fileName) => {
+      const processedFiles = await fileProcessingService.processFiles(files, (progress, fileName) => {
         setUploadProgress(progress);
         setCurrentFileName(fileName);
       });
@@ -101,7 +108,7 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
       }
 
       try {
-        const encoded = encodeToBase64(selectedFiles);
+        const encoded = fileProcessingService.encodeFiles(selectedFiles);
         setEncodedBase64(encoded);
         
         toast({
@@ -132,9 +139,10 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
           size: new Blob([manualText]).size,
           type: "text/plain",
           lastModified: Date.now(),
+          isBinary: false,
         };
         
-        const encoded = encodeToBase64([manualFile]);
+        const encoded = fileProcessingService.encodeFiles([manualFile]);
         setEncodedBase64(encoded);
         
         toast({
@@ -163,7 +171,7 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
 
     try {
       setIsDecoding(true);
-      const decoded = decodeFromBase64(base64Input.trim());
+      const decoded = fileProcessingService.decodeData(base64Input.trim());
       setDecodedData(decoded);
       
       toast({
@@ -199,8 +207,9 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
     }
   };
 
+  // SOLID Principles: Single Responsibility - Download operations
   const handleDownloadSingle = (file: FileData) => {
-    downloadFile(file.content, file.name, file.isBinary);
+    downloadService.downloadSingle(file);
     toast({
       title: "File downloaded",
       description: `${file.name} downloaded successfully`,
@@ -210,7 +219,7 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
   const handleDownloadAll = () => {
     if (!decodedData?.files.length) return;
     
-    downloadAllFiles(decodedData.files);
+    downloadService.downloadAll(decodedData.files);
     toast({
       title: "All files downloaded",
       description: `${decodedData.files.length} files downloaded successfully`,

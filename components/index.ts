@@ -12,8 +12,9 @@ export * from './organisms';
 // Templates - Page layouts and structures
 export * from './templates';
 
-// Templates - Page layout and structure
-export * from './templates';
+// Main Components - Following SOLID principles
+export { default as EncodeDecode } from './encode-decode';
+export { default as EncodeDecodeLegacy } from './encode-decode-legacy';
 
-// Main component (refactored)
-export { default as EncodeDecodeRefactored } from './encode-decode-platform-refactored';
+// Utility Components
+export { default as MatrixEffects } from './matrix-effects';

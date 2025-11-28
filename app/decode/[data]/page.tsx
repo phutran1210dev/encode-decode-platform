@@ -3,7 +3,7 @@
 import { useParams, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import EncodeDecode from '@/components/encode-decode-platform';
+import EncodeDecode from '@/components/encode-decode-legacy';
 
 interface DecodedData {
   data: string;

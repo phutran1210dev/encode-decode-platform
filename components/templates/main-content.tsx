@@ -11,8 +11,9 @@ import {
 } from '@/components/organisms';
 import { FileData, EncodedData } from '@/types';
 
-interface MainContentProps {
-  // Encode section props
+// SOLID Principles: Single Responsibility
+// Each interface has a single purpose
+interface EncodeProps {
   inputMode: 'manual' | 'file';
   onInputModeChange: (mode: 'manual' | 'file') => void;
   manualText: string;
@@ -25,8 +26,9 @@ interface MainContentProps {
   isEncoding: boolean;
   uploadProgress?: number;
   currentFileName?: string;
-  
-  // Decode section props
+}
+
+interface DecodeProps {
   base64Input: string;
   onBase64InputChange: (value: string) => void;
   decodedData: EncodedData | null;
@@ -34,10 +36,14 @@ interface MainContentProps {
   onDownloadSingle: (file: FileData) => void;
   onDownloadAll: () => void;
   isDecoding: boolean;
-  
-  // Common
+}
+
+interface CommonProps {
   onReset: () => void;
 }
+
+// Interface Segregation: MainContentProps combines only what's needed
+interface MainContentProps extends EncodeProps, DecodeProps, CommonProps {}
 
 export function MainContent({
   inputMode,

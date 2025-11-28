@@ -1,11 +1,12 @@
 "use client"
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { MatrixCard, MatrixButton } from '@/components/atoms';
 import { Download, FileText, Info, Terminal, Eye } from 'lucide-react';
 import { FileData, EncodedData } from '@/types';
 import { formatFileSize, formatTimestamp } from '@/lib/file-utils';
-import { 
+import { createImageService, type IImageService } from '@/lib/services';
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -24,14 +25,9 @@ export function DecodedOutputSection({
   onDownloadSingle, 
   onDownloadAll 
 }: DecodedOutputSectionProps) {
-  // Helper function to check if file is an image
-  const isImageFile = (file: FileData): boolean => {
-    const imageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/webp', 'image/svg+xml'];
-    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg'];
-    
-    return imageTypes.includes(file.type.toLowerCase()) || 
-           imageExtensions.some(ext => file.name.toLowerCase().endsWith(ext));
-  };
+  // SOLID Principles: Dependency Injection
+  const imageService = useMemo<IImageService>(() => createImageService(), []);
+
 
   return (
     <MatrixCard 
@@ -69,7 +65,7 @@ export function DecodedOutputSection({
                   </div>
                 </div>
                 <div className="flex gap-1">
-                  {isImageFile(file) && (
+                  {imageService.isImageFile(file) && (
                     <Dialog>
                       <DialogTrigger asChild>
                         <MatrixButton

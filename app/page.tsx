@@ -1,4 +1,4 @@
-import EncodeDecode from "@/components/encode-decode-platform";
+import EncodeDecode from '@/components/encode-decode';
 
 export default function Home() {
   return (
