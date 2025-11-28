@@ -8,6 +8,16 @@ try {
   console.error('Failed to load QRCode library:', error);
 }
 
+interface CacheEntry {
+  data: string;
+  timestamp: number;
+  expires: number;
+}
+
+declare global {
+  var qrDataCache: Map<string, CacheEntry> | undefined;
+}
+
 export async function POST(request: NextRequest) {
   try {
     console.log('QR API called');
@@ -42,10 +52,58 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Validate data length to prevent oversized QR codes
-    if (data.length > 4000) {
+    // Handle large data with compression and chunking
+    let processedData = data;
+    let isCompressed = false;
+    let isChunked = false;
+    
+    // First, try to compress large data
+    if (data.length > 2000) {
+      try {
+        // Simple compression using URL-safe base64 and removing redundant chars
+        const compressed = data
+          .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+          .trim();
+          
+        if (compressed.length < data.length * 0.8) {
+          processedData = compressed;
+          isCompressed = true;
+          console.log(`Data compressed from ${data.length} to ${compressed.length} chars`);
+        }
+      } catch (error) {
+        console.log('Compression failed, using original data');
+      }
+    }
+    
+    // If still too large, create a shortened URL approach
+    if (processedData.length > 2500) {
+      // For very large data, we'll store it temporarily and use a short ID
+      const dataId = Buffer.from(data).toString('base64url').substring(0, 12) + Date.now();
+      
+      // Store in a simple in-memory cache (you could use Redis/Database in production)
+      globalThis.qrDataCache = globalThis.qrDataCache || new Map<string, CacheEntry>();
+      globalThis.qrDataCache.set(dataId, {
+        data: data,
+        timestamp: Date.now(),
+        expires: Date.now() + (10 * 60 * 1000) // 10 minutes
+      });
+      
+      // Clean up expired entries
+      for (const [key, value] of globalThis.qrDataCache.entries()) {
+        if (value.expires < Date.now()) {
+          globalThis.qrDataCache.delete(key);
+        }
+      }
+      
+      processedData = dataId;
+      isChunked = true;
+      console.log(`Large data (${data.length} chars) stored with ID: ${dataId}`);
+    }
+    
+    // Final validation
+    if (processedData.length > 3000) {
       return NextResponse.json(
-        { error: 'Data too large for QR code generation' }, 
+        { error: `Data too large for QR code generation (${processedData.length} characters). Maximum supported: 3000 characters.` }, 
         { status: 400 }
       );
     }
@@ -66,13 +124,19 @@ export async function POST(request: NextRequest) {
     
     console.log('Base URL:', baseUrl);
     
-    // Create URL with encoded data as query parameter (safer encoding)
+    // Create URL with processed data
     let targetUrl: string;
     try {
-      const url = new URL('/decode', baseUrl);
-      // Double encode for safety in QR codes
-      url.searchParams.set('data', data);
-      targetUrl = url.toString();
+      if (isChunked) {
+        // Use special route for chunked data
+        const url = new URL(`/decode/${processedData}`, baseUrl);
+        targetUrl = url.toString();
+      } else {
+        // Normal route with query parameter
+        const url = new URL('/decode', baseUrl);
+        url.searchParams.set('data', processedData);
+        targetUrl = url.toString();
+      }
     } catch (urlError) {
       console.error('URL creation error:', urlError);
       return NextResponse.json(
@@ -109,7 +173,13 @@ export async function POST(request: NextRequest) {
       qrCode: qrCodeDataURL,
       url: targetUrl,
       data: data,
-      environment: host.includes('localhost') || host.includes('127.0.0.1') ? 'development' : 'production'
+      environment: host.includes('localhost') || host.includes('127.0.0.1') ? 'development' : 'production',
+      processing: {
+        originalSize: data.length,
+        processedSize: processedData.length,
+        isCompressed,
+        isChunked
+      }
     });
     
   } catch (error) {

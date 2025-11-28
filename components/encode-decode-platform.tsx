@@ -38,7 +38,11 @@ import {
 } from '@/lib/file-utils';
 import { FileData, EncodedData } from '@/types';
 
-export default function EncodeDecode() {
+interface EncodeDecodeProps {
+  initialDecodeData?: string;
+}
+
+export default function EncodeDecode({ initialDecodeData }: EncodeDecodeProps = {}) {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
@@ -51,9 +55,10 @@ export default function EncodeDecode() {
   const [manualText, setManualText] = useState<string>('');
   
   // Decoder state
-  const [base64Input, setBase64Input] = useState<string>('');
+  const [base64Input, setBase64Input] = useState<string>(initialDecodeData || '');
   const [decodedData, setDecodedData] = useState<EncodedData | null>(null);
   const [isDecoding, setIsDecoding] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>(initialDecodeData ? 'decode' : 'encode');
   
   const handleFileSelect = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -206,6 +211,13 @@ export default function EncodeDecode() {
     });
   };
 
+  // Auto-decode when initialDecodeData is provided
+  React.useEffect(() => {
+    if (initialDecodeData && !decodedData) {
+      handleDecode();
+    }
+  }, [initialDecodeData]);
+
   const handleReset = () => {
     setSelectedFiles([]);
     setEncodedBase64('');
@@ -213,6 +225,7 @@ export default function EncodeDecode() {
     setDecodedData(null);
     setManualText('');
     setInputMode('file');
+    setActiveTab('encode');
     if (fileInputRef.current) fileInputRef.current.value = '';
     if (folderInputRef.current) folderInputRef.current.value = '';
   };
@@ -268,7 +281,7 @@ export default function EncodeDecode() {
               </div>
             </CardContent>
           </Card>
-        </div>        <Tabs defaultValue="encode" className="w-full">
+        </div>        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2 mb-6 bg-black/50 border border-green-500/30">
             <TabsTrigger 
               value="encode" 
