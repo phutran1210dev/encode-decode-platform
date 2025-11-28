@@ -1,13 +1,51 @@
 import { NextRequest, NextResponse } from 'next/server';
-import QRCode from 'qrcode';
+
+// Dynamic import QRCode to handle potential SSR issues
+let QRCode: any;
+try {
+  QRCode = require('qrcode');
+} catch (error) {
+  console.error('Failed to load QRCode library:', error);
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const { data } = await request.json();
+    console.log('QR API called');
     
-    if (!data) {
+    // Check if QRCode library is available
+    if (!QRCode) {
+      console.error('QRCode library not available');
       return NextResponse.json(
-        { error: 'Data is required' }, 
+        { error: 'QR code generation service unavailable' }, 
+        { status: 503 }
+      );
+    }
+    
+    // Parse request body safely
+    let requestData;
+    try {
+      requestData = await request.json();
+    } catch (parseError) {
+      console.error('JSON parse error:', parseError);
+      return NextResponse.json(
+        { error: 'Invalid JSON in request body' }, 
+        { status: 400 }
+      );
+    }
+    
+    const { data } = requestData;
+    
+    if (!data || typeof data !== 'string') {
+      return NextResponse.json(
+        { error: 'Data is required and must be a string' }, 
+        { status: 400 }
+      );
+    }
+    
+    // Validate data length to prevent oversized QR codes
+    if (data.length > 4000) {
+      return NextResponse.json(
+        { error: 'Data too large for QR code generation' }, 
         { status: 400 }
       );
     }
@@ -16,32 +54,60 @@ export async function POST(request: NextRequest) {
     const host = request.headers.get('host') || '';
     let baseUrl: string;
     
+    console.log('Host detected:', host);
+    
     if (host.includes('localhost') || host.includes('127.0.0.1')) {
-      // Development environment - use 127.0.0.1 for better mobile access
+      // Development environment
       baseUrl = `http://127.0.0.1:3000`;
     } else {
-      // Production environment - use Vercel domain
-      baseUrl = 'https://encode-decode-platform.vercel.app';
+      // Production environment - use the actual host from request
+      baseUrl = `https://${host}`;
     }
     
-    // Create URL with encoded data as query parameter
-    const url = new URL('/decode', baseUrl);
-    url.searchParams.set('data', encodeURIComponent(data));
+    console.log('Base URL:', baseUrl);
     
-    // Generate QR code as data URL
-    const qrCodeDataURL = await QRCode.toDataURL(url.toString(), {
-      width: 300,
-      margin: 2,
-      color: {
-        dark: '#00ff00', // Matrix green
-        light: '#000000' // Black background
-      },
-      errorCorrectionLevel: 'M'
-    });
+    // Create URL with encoded data as query parameter (safer encoding)
+    let targetUrl: string;
+    try {
+      const url = new URL('/decode', baseUrl);
+      // Double encode for safety in QR codes
+      url.searchParams.set('data', data);
+      targetUrl = url.toString();
+    } catch (urlError) {
+      console.error('URL creation error:', urlError);
+      return NextResponse.json(
+        { error: 'Failed to create target URL' }, 
+        { status: 500 }
+      );
+    }
+    
+    console.log('Target URL:', targetUrl);
+    
+    // Generate QR code with error handling
+    let qrCodeDataURL: string;
+    try {
+      qrCodeDataURL = await QRCode.toDataURL(targetUrl, {
+        width: 300,
+        margin: 2,
+        color: {
+          dark: '#00ff00', // Matrix green
+          light: '#000000' // Black background
+        },
+        errorCorrectionLevel: 'M'
+      });
+    } catch (qrError) {
+      console.error('QR generation error:', qrError);
+      return NextResponse.json(
+        { error: 'Failed to generate QR code' }, 
+        { status: 500 }
+      );
+    }
+    
+    console.log('QR code generated successfully');
     
     return NextResponse.json({
       qrCode: qrCodeDataURL,
-      url: url.toString(),
+      url: targetUrl,
       data: data,
       environment: host.includes('localhost') || host.includes('127.0.0.1') ? 'development' : 'production'
     });
