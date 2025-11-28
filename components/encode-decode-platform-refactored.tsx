@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import MatrixRain from '@/components/matrix-effects';
 import { HeaderSection, MainContent } from '@/components/templates';
@@ -14,7 +14,11 @@ import {
 } from '@/lib/file-utils';
 import { FileData, EncodedData } from '@/types';
 
-export default function EncodeDecode() {
+interface EncodeDecodeProps {
+  autoFillData?: string;
+}
+
+export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
   const { toast } = useToast();
   
   // Encoder state
@@ -32,6 +36,19 @@ export default function EncodeDecode() {
   const [base64Input, setBase64Input] = useState<string>('');
   const [decodedData, setDecodedData] = useState<EncodedData | null>(null);
   const [isDecoding, setIsDecoding] = useState(false);
+  
+  // Auto-fill effect for QR code navigation
+  useEffect(() => {
+    if (autoFillData && autoFillData !== base64Input) {
+      setBase64Input(autoFillData);
+      // Auto-decode if valid data
+      setTimeout(() => {
+        if (autoFillData.trim()) {
+          handleDecode();
+        }
+      }, 500);
+    }
+  }, [autoFillData]);
   
   const handleFileSelect = async (files: FileList | null) => {
     if (!files || files.length === 0) return;

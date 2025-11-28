@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import MatrixRain, { TypingText, GlitchText } from '@/components/matrix-effects';
+import { EncodedOutputSection } from '@/components/organisms';
 
 import { 
   Upload, 
@@ -442,37 +443,10 @@ export default function EncodeDecode() {
             </Card>
 
               {/* Encoded Output Section */}
-              <Card className="hacker-terminal pulse-effect">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-green-400 font-mono glow-text">
-                    <Terminal className="h-5 w-5" />
-                    <GlitchText text="ENCRYPTED PAYLOAD" />
-                  </CardTitle>
-                  <CardDescription className="text-green-500/70 font-mono">
-                    [BASE64 ENCODED DATA STREAM]
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label className="text-green-400 font-mono">ENCODED STREAM</Label>
-                    <Textarea 
-                      value={encodedBase64}
-                      placeholder="[AWAITING ENCRYPTION...]"
-                      readOnly
-                      className="min-h-[300px] font-mono text-xs bg-black/50 border-green-500/30 text-green-300 placeholder:text-green-600/50"
-                    />
-                    {encodedBase64 && (
-                      <Button 
-                        onClick={handleCopyEncoded}
-                        className="w-full matrix-button font-mono text-black"
-                      >
-                        <Copy className="h-4 w-4 mr-2" />
-                        COPY TO CLIPBOARD
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+              <EncodedOutputSection 
+                encodedData={encodedBase64}
+                onCopy={handleCopyEncoded}
+              />
             </div>
           </TabsContent>
 
