@@ -44,6 +44,9 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
   const [decodedData, setDecodedData] = useState<EncodedData | null>(null);
   const [isDecoding, setIsDecoding] = useState(false);
   
+  // Drag and drop state
+  const [isDragOver, setIsDragOver] = useState(false);
+  
   // Auto-fill effect for QR code navigation
   useEffect(() => {
     if (autoFillData && autoFillData !== base64Input) {
@@ -210,6 +213,10 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
   // SOLID Principles: Single Responsibility - Download operations
   const handleDownloadSingle = (file: FileData) => {
     downloadService.downloadSingle(file);
+    // Clear all data after download - no need to keep anything
+    setEncodedBase64('');
+    setBase64Input('');
+    setDecodedData(null);
     toast({
       title: "File downloaded",
       description: `${file.name} downloaded successfully`,
@@ -219,11 +226,40 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
   const handleDownloadAll = () => {
     if (!decodedData?.files.length) return;
     
+    const fileCount = decodedData.files.length;
     downloadService.downloadAll(decodedData.files);
+    // Clear all data after download - complete reset
+    setEncodedBase64('');
+    setBase64Input('');
+    setDecodedData(null);
     toast({
       title: "All files downloaded",
-      description: `${decodedData.files.length} files downloaded successfully`,
+      description: `${fileCount} files downloaded successfully`,
     });
+  };
+
+  // Drag and drop handlers
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+    
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      handleFileSelect(files);
+    }
   };
 
   const handleReset = () => {
@@ -236,8 +272,27 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
   };
 
   return (
-    <div className="min-h-screen relative">
+    <div 
+      className="min-h-screen relative"
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       <MatrixRain />
+      
+      {/* Drag overlay */}
+      {isDragOver && (
+        <div className="fixed inset-0 z-50 bg-green-900/20 backdrop-blur-sm flex items-center justify-center">
+          <div className="bg-black/80 border-2 border-dashed border-green-400 rounded-lg p-8 text-center">
+            <div className="text-green-400 text-2xl font-mono mb-2">
+              📁 DROP FILES TO UPLOAD
+            </div>
+            <div className="text-green-500/70 font-mono">
+              Release to add files for encoding
+            </div>
+          </div>
+        </div>
+      )}
       
       <div className="container mx-auto p-6 max-w-6xl relative z-10">
         <HeaderSection onReset={handleReset} />
