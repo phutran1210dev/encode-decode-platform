@@ -8,12 +8,12 @@ class RequestInterceptor {
   private isActive: boolean = false;
   
   constructor() {
-    this.originalFetch = window.fetch.bind(window);
+    this.originalFetch = typeof window !== 'undefined' ? window.fetch.bind(window) : fetch;
   }
   
   // Activate stealth mode for all requests
   activate(): void {
-    if (this.isActive) return;
+    if (this.isActive || typeof window === 'undefined') return;
     
     // Override global fetch
     window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
@@ -40,7 +40,7 @@ class RequestInterceptor {
   
   // Deactivate stealth mode
   deactivate(): void {
-    if (!this.isActive) return;
+    if (!this.isActive || typeof window === 'undefined') return;
     
     window.fetch = this.originalFetch;
     this.isActive = false;
@@ -49,6 +49,8 @@ class RequestInterceptor {
   
   // Check if URL is same-origin
   private isSameOrigin(url: string): boolean {
+    if (typeof window === 'undefined') return true;
+    
     try {
       const urlObj = new URL(url, window.location.href);
       return urlObj.origin === window.location.origin;
@@ -63,25 +65,27 @@ class RequestInterceptor {
   }
 }
 
-// Create singleton interceptor
-export const requestInterceptor = new RequestInterceptor();
+// Create lazy singleton interceptor to avoid SSR issues
+let requestInterceptorInstance: RequestInterceptor | null = null;
 
-// Auto-activate in production or when specifically enabled
-if (typeof window !== 'undefined') {
-  // Check for stealth mode flags
-  const urlParams = new URLSearchParams(window.location.search);
-  const isStealthMode = 
-    process.env.NODE_ENV === 'production' ||
-    urlParams.has('stealth') ||
-    localStorage.getItem('stealth-mode') === 'true';
-  
-  if (isStealthMode) {
-    // Activate after a random delay to avoid pattern detection
-    const delay = Math.random() * 1000 + 500; // 500-1500ms
-    setTimeout(() => {
-      requestInterceptor.activate();
-    }, delay);
+export const getRequestInterceptor = (): RequestInterceptor => {
+  if (typeof window === 'undefined') {
+    // Return a dummy implementation for server-side
+    return {
+      activate: () => {},
+      deactivate: () => {},
+      isStealthActive: () => false,
+    } as RequestInterceptor;
   }
-}
+  
+  if (!requestInterceptorInstance) {
+    requestInterceptorInstance = new RequestInterceptor();
+  }
+  
+  return requestInterceptorInstance;
+};
+
+// Export for backward compatibility
+export const requestInterceptor = getRequestInterceptor();
 
 export default RequestInterceptor;

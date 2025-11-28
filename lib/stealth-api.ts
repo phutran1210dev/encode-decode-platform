@@ -1,6 +1,8 @@
 // Stealth API utility to obfuscate and hide API requests
 // Anti-detection techniques for API calls
 
+import { hiddenAPI } from './hidden-api';
+
 interface StealthConfig {
   useRandomDelays: boolean;
   useProxyRotation: boolean;
@@ -143,6 +145,7 @@ class StealthAPIService {
       headers: {
         ...stealthHeaders,
         ...options.headers,
+        'X-Hidden-Request': 'true', // Mark for hidden API
       },
     };
     
@@ -151,13 +154,15 @@ class StealthAPIService {
     await new Promise(resolve => setTimeout(resolve, jitter));
     
     try {
+      // Use hidden API for maximum stealth
       return await this.fragmentedFetch(obfuscatedURL, stealthOptions);
     } catch {
-      // On failure, retry once with basic headers
+      // On failure, retry once with basic headers but still hidden
       const basicOptions: RequestInit = {
         ...options,
         headers: {
           'User-Agent': this.getRandomUserAgent(),
+          'X-Hidden-Request': 'true',
           ...options.headers,
         },
       };

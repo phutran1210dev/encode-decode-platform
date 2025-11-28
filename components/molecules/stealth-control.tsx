@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { MatrixButton } from '@/components/atoms';
 import { Shield, ShieldOff, Eye, EyeOff } from 'lucide-react';
-import { requestInterceptor } from '@/lib/request-interceptor';
+import { getRequestInterceptor } from '@/lib/request-interceptor';
 
 interface StealthControlProps {
   className?: string;
@@ -15,30 +15,39 @@ export function StealthControl({ className = '' }: StealthControlProps) {
   
   useEffect(() => {
     const checkInitialState = () => {
-      // Check initial state
-      const stealthActive = requestInterceptor.isStealthActive();
-      setIsStealthActive(stealthActive);
+      if (typeof window === 'undefined') return;
       
-      // Show control in dev mode or with special flag
-      const isDev = process.env.NODE_ENV === 'development';
-      const urlParams = new URLSearchParams(window.location.search);
-      const showControls = isDev || urlParams.has('debug') || localStorage.getItem('show-stealth-controls') === 'true';
-      
-      setIsVisible(showControls);
+      try {
+        // Check initial state
+        const interceptor = getRequestInterceptor();
+        const stealthActive = interceptor.isStealthActive();
+        setIsStealthActive(stealthActive);
+        
+        // Show control in dev mode or with special flag
+        const isDev = process.env.NODE_ENV === 'development';
+        const urlParams = new URLSearchParams(window.location.search);
+        const showControls = isDev || urlParams.has('debug') || localStorage.getItem('show-stealth-controls') === 'true';
+        
+        setIsVisible(showControls);
+      } catch (error) {
+        console.warn('Stealth control initialization failed:', error);
+      }
     };
     
     // Use setTimeout to avoid synchronous setState in effect
-    const timer = setTimeout(checkInitialState, 0);
+    const timer = setTimeout(checkInitialState, 100);
     return () => clearTimeout(timer);
   }, []);
   
   const toggleStealth = () => {
+    const interceptor = getRequestInterceptor();
+    
     if (isStealthActive) {
-      requestInterceptor.deactivate();
+      interceptor.deactivate();
       localStorage.setItem('stealth-mode', 'false');
       setIsStealthActive(false);
     } else {
-      requestInterceptor.activate();
+      interceptor.activate();
       localStorage.setItem('stealth-mode', 'true');
       setIsStealthActive(true);
     }
