@@ -7,3 +7,4 @@ export { InputModeSelector } from './input-mode-selector';
 export { QRCodeGenerator } from './qr-code-generator';
 export { QRModal } from './qr-modal';
 export { PasswordInput } from './password-input';
+export { StealthControl } from './stealth-control';

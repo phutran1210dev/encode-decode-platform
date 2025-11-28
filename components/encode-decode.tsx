@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import MatrixRain from '@/components/matrix-effects';
 import { HeaderSection, MainContent } from '@/components/templates';
+import { StealthControl } from '@/components/molecules';
 import { copyToClipboard } from '@/lib/file-utils';
 import { FileData, EncodedData } from '@/types';
 // SOLID Principles: Dependency Injection
@@ -431,6 +432,8 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
           onReset={handleReset}
         />
       </div>
+      
+      <StealthControl />
     </div>
   );
 }
