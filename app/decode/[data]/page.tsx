@@ -30,7 +30,9 @@ export default function DecodePage() {
         // Handle chunked data
         setIsLoading(true);
         try {
-          const response = await fetch(`/api/qr-data/${dataId}`);
+          const response = await hiddenFetch(`/api/qr-data/${dataId}`, {
+            headers: { 'X-Hidden-Request': 'true' }
+          });
           if (response.ok) {
             const result: DecodedData = await response.json();
             setDecodedData(decodeURIComponent(result.data));

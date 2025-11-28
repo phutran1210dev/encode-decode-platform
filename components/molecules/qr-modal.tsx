@@ -13,6 +13,7 @@ import { QrCode, Smartphone, X, Timer, RotateCcw } from 'lucide-react';
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 import { copyToClipboard } from '@/lib/file-utils';
+import { hiddenFetch } from '@/lib/hidden-api';
 
 interface QRModalProps {
   isOpen: boolean;
@@ -89,10 +90,11 @@ export function QRModal({ isOpen, onClose, data }: QRModalProps) {
       const useStreaming = data.length > 10000; // Use streaming for data > 10KB
       const apiEndpoint = useStreaming ? '/api/qr-stream' : '/api/qr';
       
-      const response = await fetch(apiEndpoint, {
+      const response = await hiddenFetch(apiEndpoint, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'X-Hidden-Request': 'true'
         },
         body: JSON.stringify({
           data,
