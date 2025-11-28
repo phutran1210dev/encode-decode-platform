@@ -11,9 +11,11 @@ import {
   createFileProcessingService,
   createDownloadService,
   createImageService,
+  createEncryptionService,
   type IFileProcessingService,
   type IDownloadService,
-  type IImageService
+  type IImageService,
+  type IEncryptionService
 } from '@/lib/services';
 
 interface EncodeDecodeProps {
@@ -27,6 +29,7 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
   const fileProcessingService = useMemo<IFileProcessingService>(() => createFileProcessingService(), []);
   const downloadService = useMemo<IDownloadService>(() => createDownloadService(), []);
   const imageService = useMemo<IImageService>(() => createImageService(), []);
+  const encryptionService = useMemo<IEncryptionService>(() => createEncryptionService(), []);
   
   // Encoder state
   const [selectedFiles, setSelectedFiles] = useState<FileData[]>([]);
@@ -46,6 +49,11 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
   
   // Drag and drop state
   const [isDragOver, setIsDragOver] = useState(false);
+  
+  // Password states for encryption
+  const [encodePassword, setEncodePassword] = useState<string>('');
+  const [decodePassword, setDecodePassword] = useState<string>('');
+  const [isEncrypting, setIsEncrypting] = useState(false);
   
   // Auto-fill effect for QR code navigation
   useEffect(() => {
@@ -99,74 +107,98 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
     }
   };
 
-  const handleEncode = () => {
-    if (inputMode === 'file') {
-      if (selectedFiles.length === 0) {
-        toast({
-          title: "No files selected",
-          description: "Please select files to encode",
-          variant: "destructive",
-        });
-        return;
-      }
+  const handleEncode = async () => {
+    // Validate password first
+    if (!encodePassword.trim()) {
+      toast({
+        title: "Password required",
+        description: "Please enter a password for encryption",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!encryptionService.validatePassword(encodePassword)) {
+      toast({
+        title: "Invalid password",
+        description: "Password must be at least 8 characters long",
+        variant: "destructive",
+      });
+      return;
+    }
 
-      try {
-        const encoded = fileProcessingService.encodeFiles(selectedFiles);
-        setEncodedBase64(encoded);
+    try {
+      setIsEncrypting(true);
+      
+      let filesToEncode: FileData[];
+      
+      if (inputMode === 'file') {
+        if (selectedFiles.length === 0) {
+          toast({
+            title: "No files selected",
+            description: "Please select files to encode",
+            variant: "destructive",
+          });
+          return;
+        }
+        filesToEncode = selectedFiles;
+      } else {
+        if (!manualText.trim()) {
+          toast({
+            title: "No text provided",
+            description: "Please enter text to encode",
+            variant: "destructive",
+          });
+          return;
+        }
         
-        toast({
-          title: "Files encoded successfully",
-          description: `${selectedFiles.length} files encoded to base64`,
-        });
-      } catch (error) {
-        toast({
-          title: "Encoding failed",
-          description: error instanceof Error ? error.message : "Unknown error",
-          variant: "destructive",
-        });
-      }
-    } else {
-      if (!manualText.trim()) {
-        toast({
-          title: "No text provided",
-          description: "Please enter text to encode",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      try {
-        const manualFile: FileData = {
+        filesToEncode = [{
           name: "manual-input.txt",
           content: manualText,
           size: new Blob([manualText]).size,
           type: "text/plain",
           lastModified: Date.now(),
           isBinary: false,
-        };
-        
-        const encoded = fileProcessingService.encodeFiles([manualFile]);
-        setEncodedBase64(encoded);
-        
-        toast({
-          title: "Text encoded successfully",
-          description: "Manual text encoded to base64",
-        });
-      } catch (error) {
-        toast({
-          title: "Encoding failed",
-          description: error instanceof Error ? error.message : "Unknown error",
-          variant: "destructive",
-        });
+        }];
       }
+      
+      // First encode files to structured data
+      const encodedFiles = fileProcessingService.encodeFiles(filesToEncode);
+      const structuredData = fileProcessingService.decodeData(encodedFiles);
+      
+      // Then encrypt with AES using password
+      const encrypted = await encryptionService.encrypt(structuredData, encodePassword);
+      setEncodedBase64(encrypted);
+      
+      toast({
+        title: "🔐 Encryption successful",
+        description: `${filesToEncode.length} file(s) encrypted with AES-256`,
+      });
+    } catch (error) {
+      toast({
+        title: "Encryption failed",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setIsEncrypting(false);
     }
   };
 
-  const handleDecode = () => {
+  const handleDecode = async () => {
     if (!base64Input.trim()) {
       toast({
-        title: "No base64 data",
-        description: "Please paste base64 encoded data",
+        title: "No encrypted data",
+        description: "Please paste encrypted data",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!decodePassword.trim()) {
+      toast({
+        title: "Password required",
+        description: "Please enter the password to decrypt",
         variant: "destructive",
       });
       return;
@@ -174,19 +206,32 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
 
     try {
       setIsDecoding(true);
-      const decoded = fileProcessingService.decodeData(base64Input.trim());
+      
+      // Try AES decryption first
+      const decoded = await encryptionService.decrypt(base64Input.trim(), decodePassword);
       setDecodedData(decoded);
       
       toast({
-        title: "Data decoded successfully",
-        description: `${decoded.files.length} files decoded from base64`,
+        title: "🔓 Decryption successful",
+        description: `${decoded.files.length} files decrypted successfully`,
       });
     } catch (error) {
-      toast({
-        title: "Decoding failed",
-        description: error instanceof Error ? error.message : "Invalid base64 data",
-        variant: "destructive",
-      });
+      // If AES fails, try legacy base64 decode as fallback
+      try {
+        const decoded = fileProcessingService.decodeData(base64Input.trim());
+        setDecodedData(decoded);
+        
+        toast({
+          title: "⚠️ Legacy decode successful",
+          description: `${decoded.files.length} files decoded (unencrypted base64)`,
+        });
+      } catch (legacyError) {
+        toast({
+          title: "Decryption failed",
+          description: error instanceof Error ? error.message : "Invalid password or corrupted data",
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsDecoding(false);
     }
@@ -310,6 +355,9 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
           isEncoding={isEncoding}
           uploadProgress={uploadProgress}
           currentFileName={currentFileName}
+          encodePassword={encodePassword}
+          onEncodePasswordChange={setEncodePassword}
+          isEncrypting={isEncrypting}
           base64Input={base64Input}
           onBase64InputChange={setBase64Input}
           decodedData={decodedData}
@@ -317,6 +365,8 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
           onDownloadSingle={handleDownloadSingle}
           onDownloadAll={handleDownloadAll}
           isDecoding={isDecoding}
+          decodePassword={decodePassword}
+          onDecodePasswordChange={setDecodePassword}
           onReset={handleReset}
         />
       </div>

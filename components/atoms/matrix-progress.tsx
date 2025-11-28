@@ -1,7 +1,8 @@
 "use client"
 
-import React from 'react';
-import { cn } from '@/lib/utils';
+function cn(...classes: (string | undefined | false)[]) {
+  return classes.filter(Boolean).join(' ');
+}
 
 interface MatrixProgressProps {
   value: number; // 0-100

@@ -1,12 +1,13 @@
 "use client"
 
 import React, { useRef } from 'react';
-import { MatrixCard, MatrixButton, MatrixProgress } from '@/components/atoms';
+import { MatrixCard, MatrixButton } from '@/components/atoms';
 import { 
   InputModeSelector, 
   FileUploadButtons, 
   FileList, 
-  ManualTextInput 
+  ManualTextInput,
+  PasswordInput 
 } from '@/components/molecules';
 import { Upload, Shield, RotateCcw } from 'lucide-react';
 import { FileData } from '@/types';
@@ -23,6 +24,8 @@ interface DataInputSectionProps {
   isEncoding: boolean;
   uploadProgress?: number;
   currentFileName?: string;
+  password: string;
+  onPasswordChange: (password: string) => void;
 }
 
 export function DataInputSection({
@@ -35,8 +38,8 @@ export function DataInputSection({
   onEncode,
   onReset,
   isEncoding,
-  uploadProgress,
-  currentFileName
+  password,
+  onPasswordChange
 }: DataInputSectionProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
@@ -53,6 +56,15 @@ export function DataInputSection({
       <InputModeSelector 
         value={inputMode}
         onChange={onInputModeChange}
+      />
+
+      <PasswordInput
+        value={password}
+        onChange={onPasswordChange}
+        label="ENCRYPTION PASSWORD"
+        placeholder="[ENTER PASSWORD FOR ENCRYPTION...]"
+        required
+        disabled={isEncoding}
       />
 
       {inputMode === 'manual' && (
