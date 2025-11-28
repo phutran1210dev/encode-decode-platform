@@ -55,6 +55,11 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
   const [decodePassword, setDecodePassword] = useState<string>('');
   const [isEncrypting, setIsEncrypting] = useState(false);
   
+  // Security states
+  const [failedPasswordAttempts, setFailedPasswordAttempts] = useState<number>(0);
+  const [isStreamLocked, setIsStreamLocked] = useState<boolean>(false);
+  const [hasSuccessfulDecrypt, setHasSuccessfulDecrypt] = useState<boolean>(false);
+  
   // Auto-fill effect for QR code navigation
   useEffect(() => {
     if (autoFillData && autoFillData !== base64Input) {
@@ -67,6 +72,16 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
       }, 500);
     }
   }, [autoFillData]);
+  
+  // Reset security state when new encrypted data is provided
+  useEffect(() => {
+    if (base64Input.trim()) {
+      // Reset security counters when new encrypted stream is pasted
+      setFailedPasswordAttempts(0);
+      setIsStreamLocked(false);
+      setHasSuccessfulDecrypt(false);
+    }
+  }, [base64Input]);
   
   const handleFileSelect = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -195,6 +210,15 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
       return;
     }
     
+    if (isStreamLocked) {
+      toast({
+        title: "🔒 Stream Locked",
+        description: "Encrypted stream has been locked due to too many failed attempts",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     if (!decodePassword.trim()) {
       toast({
         title: "Password required",
@@ -209,6 +233,10 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
       
       // Try AES decryption first
       const decoded = await encryptionService.decrypt(base64Input.trim(), decodePassword);
+      
+      // Success - reset failed attempts and mark successful decrypt
+      setFailedPasswordAttempts(0);
+      setHasSuccessfulDecrypt(true);
       setDecodedData(decoded);
       
       toast({
@@ -216,10 +244,35 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
         description: `${decoded.files.length} files decrypted successfully`,
       });
     } catch (error) {
+      // Failed attempt - increment counter
+      const newAttempts = failedPasswordAttempts + 1;
+      setFailedPasswordAttempts(newAttempts);
+      
+      // Hide decoded data if we previously had successful decrypt
+      if (hasSuccessfulDecrypt) {
+        setDecodedData(null);
+        setHasSuccessfulDecrypt(false);
+      }
+      
+      // Lock stream after 4 failed attempts
+      if (newAttempts >= 4) {
+        setIsStreamLocked(true);
+        setBase64Input(''); // Clear encrypted stream
+        setDecodePassword(''); // Clear password field
+        
+        toast({
+          title: "🚨 Security Alert",
+          description: "Stream locked and cleared due to multiple failed attempts",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       // If AES fails, try legacy base64 decode as fallback
       try {
         const decoded = fileProcessingService.decodeData(base64Input.trim());
         setDecodedData(decoded);
+        setFailedPasswordAttempts(0); // Reset on successful legacy decode
         
         toast({
           title: "⚠️ Legacy decode successful",
@@ -227,7 +280,7 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
         });
       } catch (legacyError) {
         toast({
-          title: "Decryption failed",
+          title: `Decryption failed (${4 - newAttempts} attempts remaining)`,
           description: error instanceof Error ? error.message : "Invalid password or corrupted data",
           variant: "destructive",
         });
@@ -314,6 +367,13 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
     setDecodedData(null);
     setManualText('');
     setInputMode('file');
+    
+    // Reset security states
+    setFailedPasswordAttempts(0);
+    setIsStreamLocked(false);
+    setHasSuccessfulDecrypt(false);
+    setEncodePassword('');
+    setDecodePassword('');
   };
 
   return (
@@ -367,6 +427,7 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
           isDecoding={isDecoding}
           decodePassword={decodePassword}
           onDecodePasswordChange={setDecodePassword}
+          isStreamLocked={isStreamLocked}
           onReset={handleReset}
         />
       </div>

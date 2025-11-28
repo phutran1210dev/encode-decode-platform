@@ -13,6 +13,7 @@ interface DecodeInputSectionProps {
   isDecoding: boolean;
   password: string;
   onPasswordChange: (password: string) => void;
+  isStreamLocked?: boolean;
 }
 
 export function DecodeInputSection({ 
@@ -21,7 +22,8 @@ export function DecodeInputSection({
   onDecode, 
   isDecoding,
   password,
-  onPasswordChange
+  onPasswordChange,
+  isStreamLocked = false
 }: DecodeInputSectionProps) {
   return (
     <MatrixCard 
@@ -31,12 +33,13 @@ export function DecodeInputSection({
     >
       <div className="space-y-4">
         <div className="space-y-2">
-          <MatrixLabel>ENCRYPTED STREAM</MatrixLabel>
+          <MatrixLabel>ENCRYPTED STREAM {isStreamLocked && <span className="text-red-500">[LOCKED]</span>}</MatrixLabel>
           <Textarea 
             value={base64Input}
             onChange={(e) => onInputChange(e.target.value)}
-            placeholder="[PASTE BASE64 PAYLOAD HERE...]"
+            placeholder={isStreamLocked ? "[STREAM LOCKED DUE TO FAILED ATTEMPTS]" : "[PASTE BASE64 PAYLOAD HERE...]"}
             className="min-h-[200px] font-mono text-xs bg-black/50 border-green-500/30 text-green-300 placeholder:text-green-600/50"
+            disabled={isStreamLocked}
           />
         </div>
 
@@ -44,18 +47,18 @@ export function DecodeInputSection({
           value={password}
           onChange={onPasswordChange}
           label="DECRYPTION PASSWORD"
-          placeholder="[ENTER PASSWORD TO DECRYPT...]"
+          placeholder={isStreamLocked ? "[LOCKED]" : "[ENTER PASSWORD TO DECRYPT...]"}
           required
-          disabled={isDecoding}
+          disabled={isDecoding || isStreamLocked}
         />
 
         <MatrixButton 
           onClick={onDecode}
-          disabled={isDecoding || !base64Input.trim() || !password.trim()}
+          disabled={isDecoding || !base64Input.trim() || !password.trim() || isStreamLocked}
           icon={Unlock}
           className="w-full"
         >
-          DECRYPT DATA
+          {isStreamLocked ? '🔒 STREAM LOCKED' : 'DECRYPT DATA'}
         </MatrixButton>
       </div>
     </MatrixCard>

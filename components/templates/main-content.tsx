@@ -41,6 +41,7 @@ interface DecodeProps {
   isDecoding: boolean;
   decodePassword: string;
   onDecodePasswordChange: (password: string) => void;
+  isStreamLocked?: boolean;
 }
 
 interface CommonProps {
@@ -74,6 +75,7 @@ export function MainContent({
   isDecoding,
   decodePassword,
   onDecodePasswordChange,
+  isStreamLocked,
   onReset
 }: MainContentProps) {
   return (
@@ -127,6 +129,7 @@ export function MainContent({
             isDecoding={isDecoding}
             password={decodePassword}
             onPasswordChange={onDecodePasswordChange}
+            isStreamLocked={isStreamLocked}
           />
           
           <DecodedOutputSection
