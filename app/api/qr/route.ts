@@ -57,26 +57,37 @@ export async function POST(request: NextRequest) {
     let isCompressed = false;
     let isChunked = false;
     
-    // First, try to compress large data
-    if (data.length > 2000) {
+    console.log(`Original data size: ${data.length} characters`);
+    
+    // First, try to compress large data (lower threshold)
+    if (data.length > 1000) {
       try {
-        // Simple compression using URL-safe base64 and removing redundant chars
-        const compressed = data
+        // Enhanced compression for base64 and repetitive data
+        let compressed = data
           .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+          .replace(/={2,}/g, '=') // Replace multiple = with single =
+          .replace(/\+{2,}/g, '+') // Replace multiple + with single +
+          .replace(/\/{2,}/g, '/') // Replace multiple / with single /
           .trim();
           
-        if (compressed.length < data.length * 0.8) {
+        // Additional compression for base64 patterns
+        if (data.includes('data:') || data.match(/^[A-Za-z0-9+/=]+$/)) {
+          // Try to remove redundant base64 padding
+          compressed = compressed.replace(/=+$/, '');
+        }
+        
+        if (compressed.length < data.length) {
           processedData = compressed;
           isCompressed = true;
-          console.log(`Data compressed from ${data.length} to ${compressed.length} chars`);
+          console.log(`Data compressed from ${data.length} to ${compressed.length} chars (${Math.round((1 - compressed.length/data.length) * 100)}% reduction)`);
         }
       } catch (error) {
         console.log('Compression failed, using original data');
       }
     }
     
-    // If still too large, create a shortened URL approach
-    if (processedData.length > 2500) {
+    // If still too large, use chunking (much lower threshold)
+    if (processedData.length > 1500) {
       // For very large data, we'll store it temporarily and use a short ID
       const dataId = Buffer.from(data).toString('base64url').substring(0, 12) + Date.now();
       
@@ -98,15 +109,18 @@ export async function POST(request: NextRequest) {
       processedData = dataId;
       isChunked = true;
       console.log(`Large data (${data.length} chars) stored with ID: ${dataId}`);
+      console.log(`Cache now has ${globalThis.qrDataCache.size} entries`);
     }
     
-    // Final validation
-    if (processedData.length > 3000) {
+    // Final validation - QR codes work best under 2000 chars
+    if (!isChunked && processedData.length > 2000) {
       return NextResponse.json(
-        { error: `Data too large for QR code generation (${processedData.length} characters). Maximum supported: 3000 characters.` }, 
+        { error: `Data too large for QR code generation (${processedData.length} characters). Maximum supported: 2000 characters. Large files will be chunked automatically.` }, 
         { status: 400 }
       );
     }
+    
+    console.log(`Final processed data size: ${processedData.length} characters (chunked: ${isChunked}, compressed: ${isCompressed})`);
     
     // Auto-detect environment and create appropriate base URL
     const host = request.headers.get('host') || '';

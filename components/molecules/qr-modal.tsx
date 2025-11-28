@@ -9,7 +9,7 @@ import {
   DialogTitle 
 } from '@/components/ui/dialog';
 import { MatrixButton } from '@/components/atoms';
-import { QrCode, Download, Copy, Smartphone, X, Timer, RotateCcw } from 'lucide-react';
+import { QrCode, Smartphone, X, Timer, RotateCcw } from 'lucide-react';
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 import { copyToClipboard } from '@/lib/file-utils';
@@ -226,25 +226,7 @@ export function QRModal({ isOpen, onClose, data }: QRModalProps) {
                   SCAN TO AUTO-FILL DECODE
                 </div>
                 
-                <div className="flex gap-2 justify-center">
-                  <MatrixButton
-                    variant="outline"
-                    size="sm"
-                    onClick={downloadQR}
-                    icon={Download}
-                  >
-                    DOWNLOAD
-                  </MatrixButton>
-                  
-                  <MatrixButton
-                    variant="outline"
-                    size="sm"
-                    onClick={copyUrl}
-                    icon={Copy}
-                  >
-                    COPY LINK
-                  </MatrixButton>
-                </div>
+
               </div>
             </div>
           ) : isExpired ? (
