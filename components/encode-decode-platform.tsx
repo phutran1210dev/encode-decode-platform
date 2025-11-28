@@ -7,6 +7,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
+import { 
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import MatrixRain, { TypingText, GlitchText } from '@/components/matrix-effects';
 import { EncodedOutputSection } from '@/components/organisms';
 
@@ -22,7 +29,8 @@ import {
   Lock,
   Unlock,
   Terminal,
-  Edit
+  Edit,
+  Eye
 } from 'lucide-react';
 import {
   processFiles,
@@ -46,6 +54,15 @@ export default function EncodeDecode({ initialDecodeData }: EncodeDecodeProps = 
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
+
+  // Helper function to check if file is an image
+  const isImageFile = (file: FileData): boolean => {
+    const imageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/webp', 'image/svg+xml'];
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg'];
+    
+    return imageTypes.includes(file.type.toLowerCase()) || 
+           imageExtensions.some(ext => file.name.toLowerCase().endsWith(ext));
+  };
   
   // Encoder state
   const [selectedFiles, setSelectedFiles] = useState<FileData[]>([]);
@@ -538,14 +555,55 @@ export default function EncodeDecode({ initialDecodeData }: EncodeDecodeProps = 
                                 {formatFileSize(file.size)}
                               </div>
                             </div>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleDownloadSingle(file)}
-                              className="matrix-button"
-                            >
-                              <Download className="h-3 w-3" />
-                            </Button>
+                            <div className="flex gap-1">
+                              {isImageFile(file) && (
+                                <Dialog>
+                                  <DialogTrigger asChild>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="matrix-button"
+                                    >
+                                      <Eye className="h-3 w-3" />
+                                    </Button>
+                                  </DialogTrigger>
+                                  <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto bg-black/95 border-green-500/30">
+                                    <DialogHeader>
+                                      <DialogTitle className="text-green-400 font-mono">
+                                        {file.name}
+                                      </DialogTitle>
+                                    </DialogHeader>
+                                    <div className="flex justify-center p-4">
+                                      {file.type === 'image/svg+xml' || file.name.toLowerCase().endsWith('.svg') ? (
+                                        <div 
+                                          className="max-w-full max-h-[70vh] border border-green-500/30 rounded-md overflow-auto bg-white"
+                                          dangerouslySetInnerHTML={{ 
+                                            __html: file.isBinary && file.content.startsWith('data:') 
+                                              ? atob(file.content.split(',')[1]) 
+                                              : file.content 
+                                          }}
+                                        />
+                                      ) : (
+                                        <img 
+                                          src={file.isBinary && file.content.startsWith('data:') ? file.content : `data:${file.type};base64,${btoa(file.content)}`}
+                                          alt={file.name}
+                                          className="max-w-full max-h-[70vh] object-contain border border-green-500/30 rounded-md"
+                                          style={{ backgroundColor: 'transparent' }}
+                                        />
+                                      )}
+                                    </div>
+                                  </DialogContent>
+                                </Dialog>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleDownloadSingle(file)}
+                                className="matrix-button"
+                              >
+                                <Download className="h-3 w-3" />
+                              </Button>
+                            </div>
                           </div>
                         ))}
                       </div>
