@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // Dynamic import QRCode to handle potential SSR issues
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let QRCode: any;
 try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   QRCode = require('qrcode');
 } catch (error) {
   console.error('Failed to load QRCode library:', error);
@@ -59,21 +61,36 @@ export async function POST(request: NextRequest) {
     
     console.log(`Original data size: ${data.length} characters`);
     
-    // First, try to compress large data (lower threshold)
-    if (data.length > 1000) {
+    // Always try compression for data over 500 chars
+    if (data.length > 500) {
       try {
-        // Enhanced compression for base64 and repetitive data
+        // Enhanced compression algorithm
         let compressed = data
           .replace(/\s+/g, ' ') // Replace multiple spaces with single space
           .replace(/={2,}/g, '=') // Replace multiple = with single =
           .replace(/\+{2,}/g, '+') // Replace multiple + with single +
           .replace(/\/{2,}/g, '/') // Replace multiple / with single /
+          .replace(/\n\s*\n/g, '\n') // Remove empty lines
+          .replace(/\t+/g, ' ') // Replace tabs with space
           .trim();
           
-        // Additional compression for base64 patterns
+        // Special handling for base64 data
         if (data.includes('data:') || data.match(/^[A-Za-z0-9+/=]+$/)) {
-          // Try to remove redundant base64 padding
+          // Remove redundant base64 padding and compress further
           compressed = compressed.replace(/=+$/, '');
+          // Try to compress repetitive base64 patterns
+          compressed = compressed.replace(/(.{10,}?)\1+/g, '$1');
+        }
+        
+        // Try additional compression for JSON-like data
+        if (data.includes('{') || data.includes('[')) {
+          compressed = compressed
+            .replace(/,\s*/g, ',') // Remove spaces after commas
+            .replace(/:\s*/g, ':') // Remove spaces after colons
+            .replace(/{\s*/g, '{') // Remove spaces after opening braces
+            .replace(/\s*}/g, '}') // Remove spaces before closing braces
+            .replace(/\[\s*/g, '[') // Remove spaces after opening brackets
+            .replace(/\s*\]/g, ']'); // Remove spaces before closing brackets
         }
         
         if (compressed.length < data.length) {
@@ -86,8 +103,8 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // If still too large, use chunking (much lower threshold)
-    if (processedData.length > 1500) {
+    // Use chunking for larger data (increased threshold)
+    if (processedData.length > 4000) {
       // For very large data, we'll store it temporarily and use a short ID
       const dataId = Buffer.from(data).toString('base64url').substring(0, 12) + Date.now();
       
@@ -112,10 +129,10 @@ export async function POST(request: NextRequest) {
       console.log(`Cache now has ${globalThis.qrDataCache.size} entries`);
     }
     
-    // Final validation - QR codes work best under 2000 chars
-    if (!isChunked && processedData.length > 2000) {
+    // Final validation - QR codes can handle up to ~7000 chars with high error correction
+    if (!isChunked && processedData.length > 6000) {
       return NextResponse.json(
-        { error: `Data too large for QR code generation (${processedData.length} characters). Maximum supported: 2000 characters. Large files will be chunked automatically.` }, 
+        { error: `Data too large for QR code generation (${processedData.length} characters). Maximum supported: 6000 characters. Very large files will be chunked automatically.` }, 
         { status: 400 }
       );
     }
@@ -164,15 +181,19 @@ export async function POST(request: NextRequest) {
     // Generate QR code with error handling
     let qrCodeDataURL: string;
     try {
-      qrCodeDataURL = await QRCode.toDataURL(targetUrl, {
-        width: 300,
-        margin: 2,
+      // Use optimal settings for large data
+      const qrOptions = {
+        width: 400, // Larger size for better scanning
+        margin: 1,  // Smaller margin for more data space
         color: {
           dark: '#00ff00', // Matrix green
           light: '#000000' // Black background
         },
-        errorCorrectionLevel: 'M'
-      });
+        // Use L (Low) error correction for maximum data capacity
+        errorCorrectionLevel: processedData.length > 3000 ? 'L' : 'M'
+      };
+      
+      qrCodeDataURL = await QRCode.toDataURL(targetUrl, qrOptions);
     } catch (qrError) {
       console.error('QR generation error:', qrError);
       return NextResponse.json(
