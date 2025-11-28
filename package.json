@@ -1,12 +1,18 @@
 {
   "name": "encode-decode-platform",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:analyze": "ANALYZE=true next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "lint:fix": "eslint --fix",
+    "type-check": "tsc --noEmit",
+    "vercel-build": "pnpm run type-check && pnpm run build",
+    "preview": "next build && next start",
+    "clean": "rm -rf .next out"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",
@@ -26,9 +32,12 @@
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "tailwind-merge": "^3.4.0",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "web-vitals": "^5.1.0"
   },
   "devDependencies": {
+    "@next/bundle-analyzer": "^16.0.5",
+    "@svgr/webpack": "^8.1.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
@@ -37,6 +46,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.0.5",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "webpack-bundle-analyzer": "^5.0.1"
   }
 }

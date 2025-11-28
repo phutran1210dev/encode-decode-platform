@@ -14,8 +14,32 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Code File Encoder/Decoder",
-  description: "Share your code files securely by encoding them to base64 format",
+  title: "ENDCODE Vault - Secure File Encoder/Decoder",
+  description: "Professional penetration testing tool for secure file encoding/decoding with base64 format. Matrix-themed interface for ethical hacking operations.",
+  keywords: ["encoder", "decoder", "base64", "file", "security", "penetration testing", "ENDCODE"],
+  authors: [{ name: "ENDCODE Vault Team" }],
+  creator: "ENDCODE Security Tools",
+  publisher: "ENDCODE Vault",
+  robots: "index, follow",
+
+  openGraph: {
+    type: "website",
+    title: "ENDCODE Vault - Secure File Encoder/Decoder",
+    description: "Professional penetration testing tool for secure file operations",
+    siteName: "ENDCODE Vault",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "ENDCODE Vault",
+    description: "Secure file encoding/decoding for penetration testing",
+  },
+};
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#00ff00",
+  colorScheme: "dark" as const,
 };
 
 export default function RootLayout({

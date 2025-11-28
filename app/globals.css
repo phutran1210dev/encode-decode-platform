@@ -211,3 +211,41 @@ body::before {
   background-size: 100% 4px;
   pointer-events: none;
 }
+
+/* Loading progress animation */
+@keyframes loading-progress {
+  0% { width: 0%; }
+  25% { width: 25%; }
+  50% { width: 50%; }
+  75% { width: 75%; }
+  100% { width: 80%; }
+}
+
+.loading-bar-animation {
+  width: 0%;
+  animation: loading-progress 4s ease-out forwards;
+}
+
+/* Code Editor Styling */
+.code-editor {
+  font-family: 'Fira Code', 'JetBrains Mono', 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace !important;
+  line-height: 1.5;
+  tab-size: 2;
+  -moz-tab-size: 2;
+  white-space: pre;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.code-editor:focus {
+  outline: none;
+  box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+  border-color: hsl(var(--matrix-green));
+}
+
+/* Preserve formatting for textarea */
+.preserve-formatting {
+  white-space: pre-wrap;
+  font-variant-ligatures: normal;
+  font-feature-settings: "liga" 1, "calt" 1;
+}
