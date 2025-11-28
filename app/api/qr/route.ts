@@ -54,6 +54,15 @@ export async function POST(request: NextRequest) {
       );
     }
     
+    // Support files up to 5MB (5 * 1024 * 1024 characters)
+    const MAX_DATA_SIZE = 5 * 1024 * 1024; // 5MB in characters
+    if (data.length > MAX_DATA_SIZE) {
+      return NextResponse.json(
+        { error: `Data too large. Maximum size is 5MB (${MAX_DATA_SIZE} characters). Current size: ${data.length} characters.` },
+        { status: 413 } // Payload Too Large
+      );
+    }
+    
     // Handle large data with compression and chunking
     let processedData = data;
     let isCompressed = false;
@@ -103,17 +112,20 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // Use chunking for larger data (increased threshold)
-    if (processedData.length > 4000) {
+    // Use chunking for data over 2KB (to handle 5MB+ files efficiently)
+    if (processedData.length > 2000) {
       // For very large data, we'll store it temporarily and use a short ID
       const dataId = Buffer.from(data).toString('base64url').substring(0, 12) + Date.now();
       
       // Store in a simple in-memory cache (you could use Redis/Database in production)
       globalThis.qrDataCache = globalThis.qrDataCache || new Map<string, CacheEntry>();
+      // Longer expiration for large files (30 minutes)
+      const expirationTime = data.length > 1000000 ? (30 * 60 * 1000) : (10 * 60 * 1000);
+      
       globalThis.qrDataCache.set(dataId, {
         data: data,
         timestamp: Date.now(),
-        expires: Date.now() + (10 * 60 * 1000) // 10 minutes
+        expires: Date.now() + expirationTime
       });
       
       // Clean up expired entries
