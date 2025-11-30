@@ -4,6 +4,7 @@ import { useParams, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import EncodeDecode from '@/components/encode-decode-legacy';
+import { hiddenFetch } from '@/lib/hidden-api';
 
 interface DecodedData {
   data: string;
