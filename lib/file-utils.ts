@@ -225,41 +225,31 @@ export const processFiles = async (
     // Update progress
     onProgress?.(Math.round((processedCount / totalFiles) * 100), file.name);
     
-    // Handle ZIP files differently
-    if (isZipFile(file)) {
-      try {
-        const extractedFiles = await extractZipFile(file);
-        processedFiles.push(...extractedFiles);
-      } catch (error) {
-        throw new FileProcessingError(`Failed to process ZIP file "${file.name}": ${error instanceof Error ? error.message : 'Unknown error'}`);
+    // Handle all files uniformly - no extraction for ZIP files
+    try {
+      let content: string;
+      const isBinary = isBinaryFile(file);
+      
+      if (isBinary) {
+        // Read binary files (including ZIP) as data URL to preserve integrity
+        content = await readFileAsBinary(file);
+        console.log(`Reading binary file: ${file.name} (${file.type})`);
+      } else {
+        // Read text files normally
+        content = await readFileAsText(file);
+        console.log(`Reading text file: ${file.name}`);
       }
-    } else {
-      // Handle regular files - detect if binary or text
-      try {
-        let content: string;
-        const isBinary = isBinaryFile(file);
-        
-        if (isBinary) {
-          // Read binary files as data URL to preserve integrity
-          content = await readFileAsBinary(file);
-          console.log(`Reading binary file: ${file.name} (${file.type})`);
-        } else {
-          // Read text files normally
-          content = await readFileAsText(file);
-          console.log(`Reading text file: ${file.name}`);
-        }
 
-        processedFiles.push({
-          name: file.name,
-          content,
-          size: file.size,
-          type: file.type || 'text/plain',
-          lastModified: file.lastModified,
-          isBinary,
-        });
-      } catch (error) {
-        throw new FileProcessingError(`Failed to process file "${file.name}": ${error instanceof Error ? error.message : 'Unknown error'}`);
-      }
+      processedFiles.push({
+        name: file.name,
+        content,
+        size: file.size,
+        type: file.type || 'application/octet-stream',
+        lastModified: file.lastModified,
+        isBinary,
+      });
+    } catch (error) {
+      throw new FileProcessingError(`Failed to process file "${file.name}": ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
     
     processedCount++;
