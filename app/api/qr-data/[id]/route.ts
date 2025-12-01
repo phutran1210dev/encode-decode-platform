@@ -13,21 +13,32 @@ export async function GET(
   try {
     const { id } = await params;
     
+    console.log('🟢 [QR Data API] ==================== START ====================');
+    console.log('🟢 [QR Data API] Request URL:', request.url);
+    
     if (!id) {
+      console.log('🟢 [QR Data API] ❌ No ID provided');
       return NextResponse.json(
         { error: 'Data ID is required' },
         { status: 400 }
       );
     }
     
-    console.log(`QR Data API: Retrieving data for ID: ${id}`);
+    console.log(`🟢 [QR Data API] Retrieving data for ID: ${id}`);
     
     // Access the QR data cache
     const cache = globalThis.qrDataCache || new Map<string, CacheEntry>();
+    console.log('🟢 [QR Data API] Cache exists:', !!globalThis.qrDataCache);
+    console.log('🟢 [QR Data API] Cache size:', cache.size);
+    console.log('🟢 [QR Data API] All cache keys:', Array.from(cache.keys()));
+    console.log('🟢 [QR Data API] Looking for key:', id);
+    
     const cacheEntry = cache.get(id);
+    console.log('🟢 [QR Data API] Cache entry found:', !!cacheEntry);
     
     if (!cacheEntry) {
-      console.log(`QR Data API: Data not found for ID: ${id}`);
+      console.log(`🟢 [QR Data API] ❌ Data not found for ID: ${id}`);
+      console.log('🟢 [QR Data API] Available keys:', Array.from(cache.keys()));
       return NextResponse.json(
         { error: 'Data not found or expired' },
         { status: 404 }

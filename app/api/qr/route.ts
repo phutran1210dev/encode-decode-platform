@@ -98,7 +98,14 @@ export async function POST(request: NextRequest) {
     // Use chunking for data over 2KB (to handle 5MB+ files efficiently)
     if (processedData.length > 2000) {
       // For very large data, we'll store it temporarily and use a short ID
-      const dataId = Buffer.from(data).toString('base64url').substring(0, 12) + Date.now();
+      // Use a more stable ID generation (hash-based instead of timestamp)
+      const crypto = require('crypto');
+      const hash = crypto.createHash('md5').update(data).digest('hex').substring(0, 16);
+      const dataId = hash + '-' + Date.now().toString(36);
+      
+      console.log('🔵 [QR API] Creating cache entry for large data');
+      console.log('🔵 [QR API] Generated dataId:', dataId);
+      console.log('🔵 [QR API] Data length:', data.length);
       
       // Store in a simple in-memory cache (you could use Redis/Database in production)
       globalThis.qrDataCache = globalThis.qrDataCache || new Map<string, CacheEntry>();
@@ -111,6 +118,11 @@ export async function POST(request: NextRequest) {
         expires: Date.now() + expirationTime
       });
       
+      console.log('🔵 [QR API] Cache entry saved');
+      console.log('🔵 [QR API] Verification - can retrieve:', globalThis.qrDataCache.has(dataId));
+      console.log('🔵 [QR API] Cache size:', globalThis.qrDataCache.size);
+      console.log('🔵 [QR API] All cache keys:', Array.from(globalThis.qrDataCache.keys()));
+      
       // Clean up expired entries
       for (const [key, value] of globalThis.qrDataCache.entries()) {
         if (value.expires < Date.now()) {
@@ -120,8 +132,8 @@ export async function POST(request: NextRequest) {
       
       processedData = dataId;
       isChunked = true;
-      console.log(`Large data (${sanitizedData.length} chars) stored with ID: ${dataId}`);
-      console.log(`Cache now has ${globalThis.qrDataCache.size} entries`);
+      console.log(`🔵 [QR API] Large data (${sanitizedData.length} chars) stored with ID: ${dataId}`);
+      console.log(`🔵 [QR API] Cache now has ${globalThis.qrDataCache.size} entries`);
     }
     
     // Final validation - QR codes can handle up to ~7000 chars with high error correction
