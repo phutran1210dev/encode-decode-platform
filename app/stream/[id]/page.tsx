@@ -143,42 +143,95 @@ export default function StreamPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center p-4">
-        <div className="max-w-2xl w-full">
-          <div className="text-center mb-8">
-            <div className="text-green-500 text-8xl mb-6 animate-pulse">404</div>
-            <h1 className="text-3xl font-mono text-green-400 mb-4">QR CODE EXPIRED</h1>
-            <div className="space-y-3 text-green-400/70 font-mono text-sm mb-8">
-              <p>⚠️ This QR code link is no longer valid</p>
-              <p>🔄 QR codes expire after 30-60 minutes for security</p>
-              <p>📱 Please generate a new QR code from the encode page</p>
+      <div className="min-h-screen relative bg-black">
+        <div className="absolute inset-0 bg-gradient-to-b from-black via-green-950/5 to-black" />
+        
+        <div className="container mx-auto p-6 max-w-4xl relative z-10">
+          <div className="min-h-screen flex items-center justify-center">
+            <div className="w-full max-w-2xl">
+              {/* Matrix Card Header */}
+              <div className="bg-black/50 backdrop-blur-sm border-2 border-green-500/30 rounded-lg p-8 shadow-[0_0_30px_rgba(0,255,0,0.15)]">
+                <div className="space-y-6">
+                  {/* Error Code with Glitch Effect */}
+                  <div className="text-center">
+                    <div className="text-8xl font-mono font-bold text-green-400 mb-4 animate-pulse glow-text">
+                      404
+                    </div>
+                    <div className="text-2xl font-mono text-green-500/80 mb-2">
+                      QR CODE EXPIRED
+                    </div>
+                    <div className="text-sm font-mono text-green-400/60">
+                      [STREAM ACCESS DENIED - DATA NOT FOUND]
+                    </div>
+                  </div>
+
+                  {/* System Diagnostics */}
+                  <div className="bg-black/30 border border-green-500/30 rounded-md p-4 text-left font-mono text-sm">
+                    <div className="text-green-400 mb-2 flex items-center gap-2">
+                      <span className="text-green-500">▸</span>
+                      SYSTEM DIAGNOSTICS:
+                    </div>
+                    <div className="text-green-500/70 space-y-1 ml-6">
+                      <div>→ Stream status: <span className="text-red-400">EXPIRED</span></div>
+                      <div>→ Data retention: <span className="text-yellow-400">30-60 MINUTES</span></div>
+                      <div>→ Current time: <span className="text-blue-400">{new Date().toLocaleTimeString()}</span></div>
+                      <div>→ Recommendation: <span className="text-green-400">REGENERATE_QR</span></div>
+                    </div>
+                  </div>
+
+                  {/* Recovery Instructions */}
+                  <div className="bg-green-500/5 border border-green-500/20 rounded-md p-4">
+                    <div className="text-green-400 font-mono text-sm mb-3 flex items-center gap-2">
+                      <span className="text-green-500">⚡</span>
+                      RECOVERY PROTOCOL:
+                    </div>
+                    <ol className="text-green-400/70 font-mono text-xs space-y-2 ml-6 list-decimal">
+                      <li className="pl-2">Navigate to encode page</li>
+                      <li className="pl-2">Upload your file again (if needed)</li>
+                      <li className="pl-2">Click "ENCODE DATA" button</li>
+                      <li className="pl-2">Generate new QR code</li>
+                      <li className="pl-2">Scan within 30 minutes</li>
+                    </ol>
+                  </div>
+
+                  {/* Loading Animation Effect */}
+                  <div className="text-center py-3">
+                    <div className="text-green-500/60 font-mono text-xs">
+                      SEARCHING FOR ALTERNATIVE ROUTES...
+                    </div>
+                    <div className="mt-2 text-green-600/40 font-mono text-xs">
+                      [████████░░] 80% - NO CACHE FOUND
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+                    <Link 
+                      href="/" 
+                      className="px-6 py-3 bg-green-600 text-black font-mono rounded hover:bg-green-500 transition-all font-semibold text-center shadow-[0_0_20px_rgba(0,255,0,0.3)] hover:shadow-[0_0_30px_rgba(0,255,0,0.5)]"
+                    >
+                      ← RETURN TO BASE
+                    </Link>
+                    <Link 
+                      href="/?tab=encode" 
+                      className="px-6 py-3 bg-green-500/10 text-green-400 border-2 border-green-500/50 font-mono rounded hover:bg-green-500/20 transition-all font-semibold text-center"
+                    >
+                      GENERATE NEW QR →
+                    </Link>
+                  </div>
+
+                  {/* Warning Footer */}
+                  <div className="text-center pt-4 border-t border-green-500/20">
+                    <div className="text-yellow-500/60 font-mono text-xs mb-1">
+                      ⚠️ QR codes auto-expire for security
+                    </div>
+                    <div className="text-green-600/30 font-mono text-xs">
+                      STREAM_ID: {params?.id} | TIMESTAMP: {new Date().toISOString()}
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-          
-          <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-6 mb-6">
-            <h2 className="text-green-400 font-mono text-lg mb-4">HOW TO FIX:</h2>
-            <ol className="text-green-400/70 font-mono text-sm space-y-3 list-decimal list-inside">
-              <li>Go back to the encode page</li>
-              <li>Upload your file again (if needed)</li>
-              <li>Click "ENCODE DATA"</li>
-              <li>Generate a new QR code</li>
-              <li>Scan the new QR code within 30 minutes</li>
-            </ol>
-          </div>
-          
-          <div className="flex gap-3 justify-center">
-            <Link 
-              href="/" 
-              className="px-6 py-3 bg-green-600 text-black font-mono rounded hover:bg-green-500 transition-colors font-semibold"
-            >
-              ← BACK TO HOME
-            </Link>
-            <Link 
-              href="/?tab=encode" 
-              className="px-6 py-3 bg-green-500/20 text-green-400 border border-green-500/50 font-mono rounded hover:bg-green-500/30 transition-colors font-semibold"
-            >
-              ENCODE NEW DATA →
-            </Link>
           </div>
         </div>
       </div>
