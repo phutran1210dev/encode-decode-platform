@@ -90,55 +90,69 @@ export async function POST(request: NextRequest) {
     
     console.log(`Original data size: ${sanitizedData.length} characters`);
     
-    // Auto-switch to streaming for large data (>7000 chars)
+    // For large data, create a stateless streaming solution using URL chunks
     const QR_SIZE_LIMIT = 7000;
     if (sanitizedData.length > QR_SIZE_LIMIT) {
-      console.log(`Data too large for direct QR (${sanitizedData.length} chars), switching to streaming mode`);
+      console.log(`Data too large for direct QR (${sanitizedData.length} chars), using chunked URL approach`);
       
-      // Forward to streaming API
+      // Generate a unique stream ID (stateless - for URL identification only)
+      const streamId = Buffer.from(`${Date.now()}-${Math.random().toString(36)}`).toString('base64url').substring(0, 16);
+      
+      // Auto-detect environment and create base URL
+      const host = request.headers.get('host') || 'localhost:3000';
+      const baseUrl = host.includes('localhost') || host.includes('127.0.0.1') 
+        ? `http://127.0.0.1:3000` 
+        : `https://${host}`;
+      
+      // Create stream URL with embedded data in query param
+      // Use special marker to indicate this is chunked data
+      const streamUrl = new URL(`/stream/${streamId}`, baseUrl);
+      streamUrl.searchParams.set('d', sanitizedData); // 'd' = data parameter
+      const finalUrl = streamUrl.toString();
+      
+      console.log(`Created stateless stream URL: ${finalUrl.length} chars`);
+      
+      // Generate QR code for stream URL
+      let qrCodeDataURL: string;
       try {
-        const host = request.headers.get('host') || 'localhost:3000';
-        const baseUrl = host.includes('localhost') || host.includes('127.0.0.1') 
-          ? `http://127.0.0.1:3000` 
-          : `https://${host}`;
-        
-        const streamResponse = await fetch(`${baseUrl}/api/qr-stream`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
+        qrCodeDataURL = await QRCode.toDataURL(finalUrl, {
+          width: 400,
+          margin: 1,
+          color: {
+            dark: '#00ff00',
+            light: '#000000'
           },
-          body: JSON.stringify({ 
-            data: sanitizedData,
-            fileName: requestData.fileName,
-            contentType: requestData.contentType
-          }),
+          errorCorrectionLevel: 'L' // Low error correction for maximum data capacity
         });
-        
-        if (!streamResponse.ok) {
-          throw new Error(`Streaming API failed: ${streamResponse.status}`);
-        }
-        
-        const streamData = await streamResponse.json();
-        console.log(`Successfully switched to streaming mode: ${streamData.streamId}`);
-        
-        // Return streaming response with indicator
-        return NextResponse.json({
-          ...streamData,
-          mode: 'streaming',
-          reason: 'Data size exceeded direct QR limit',
-          directLimit: QR_SIZE_LIMIT
-        });
-        
-      } catch (streamError) {
-        console.error('Failed to create stream:', streamError);
+      } catch (qrError) {
+        console.error('QR generation error:', qrError);
         return NextResponse.json(
-          { 
-            error: `Data too large for direct QR code (${sanitizedData.length} characters). Maximum: ${QR_SIZE_LIMIT} characters.`,
-            suggestion: 'Streaming mode unavailable. Please reduce file size or try again later.'
-          }, 
-          { status: 400 }
+          { error: 'Failed to generate QR code for large data' }, 
+          { status: 500 }
         );
       }
+      
+      return NextResponse.json({
+        qrCode: qrCodeDataURL,
+        url: finalUrl,
+        mode: 'streaming',
+        streaming: {
+          streamId,
+          method: 'stateless-url',
+          originalSize: sanitizedData.length,
+          urlSize: finalUrl.length
+        },
+        metadata: {
+          timestamp: Date.now(),
+          fileName: requestData.fileName || 'streamed-data.txt',
+          contentType: requestData.contentType || 'text/plain'
+        }
+      }, {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate',
+          'X-Content-Type-Options': 'nosniff'
+        }
+      });
     }
     
     console.log(`Data size OK for direct QR: ${sanitizedData.length} characters`);

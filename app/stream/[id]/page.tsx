@@ -41,8 +41,28 @@ export default function StreamPage() {
       setError('');
       
       try {
-        // First, get complete data using POST endpoint
         console.log(`Loading stream: ${streamId}`);
+        
+        // First try to get data from URL query params (stateless approach)
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlData = urlParams.get('d'); // 'd' = data parameter
+        
+        if (urlData) {
+          // Stateless mode - data embedded in URL
+          console.log(`Stream loaded from URL params: ${urlData.length} characters`);
+          setStreamedData(urlData);
+          setMetadata({
+            originalSize: urlData.length,
+            fileName: 'streamed-data.txt',
+            contentType: 'text/plain'
+          });
+          setProgress({ current: 1, total: 1 });
+          setIsLoading(false);
+          return;
+        }
+        
+        // Fallback: Try to load from cache-based API (legacy support)
+        console.log(`Attempting to load from cache API for stream: ${streamId}`);
         
         const response = await fetch(`/api/stream/${streamId}`, {
           method: 'POST',
@@ -53,7 +73,7 @@ export default function StreamPage() {
         
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to load stream data');
+          throw new Error(errorData.error || 'Stream not found. Data may have been embedded in URL - please use the original QR scan link.');
         }
         
         const result = await response.json();
@@ -62,11 +82,11 @@ export default function StreamPage() {
         setMetadata(result.metadata);
         setProgress({ current: result.totalChunks, total: result.totalChunks });
         
-        console.log(`Stream loaded successfully: ${result.data.length} characters`);
+        console.log(`Stream loaded from cache: ${result.data.length} characters`);
         
       } catch (err) {
         console.error('Error loading stream:', err);
-        setError(err instanceof Error ? err.message : 'Network error loading stream data');
+        setError(err instanceof Error ? err.message : 'Stream not found or expired. Please generate a new QR code.');
       } finally {
         setIsLoading(false);
       }
