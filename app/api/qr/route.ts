@@ -88,55 +88,12 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Handle large data with compression and chunking
+    // Handle large data with simple chunking
     let processedData = sanitizedData;
-    let isCompressed = false;
     let isChunked = false;
     let expirationTime = 10 * 60 * 1000; // Default 10 minutes
     
     console.log(`Original data size: ${sanitizedData.length} characters`);
-    
-    // Always try compression for data over 500 chars
-    if (sanitizedData.length > 500) {
-      try {
-        // Enhanced compression algorithm
-        let compressed = sanitizedData
-          .replace(/\s+/g, ' ') // Replace multiple spaces with single space
-          .replace(/={2,}/g, '=') // Replace multiple = with single =
-          .replace(/\+{2,}/g, '+') // Replace multiple + with single +
-          .replace(/\/{2,}/g, '/') // Replace multiple / with single /
-          .replace(/\n\s*\n/g, '\n') // Remove empty lines
-          .replace(/\t+/g, ' ') // Replace tabs with space
-          .trim();
-          
-        // Special handling for base64 data
-        if (data.includes('data:') || data.match(/^[A-Za-z0-9+/=]+$/)) {
-          // Remove redundant base64 padding and compress further
-          compressed = compressed.replace(/=+$/, '');
-          // Try to compress repetitive base64 patterns
-          compressed = compressed.replace(/(.{10,}?)\1+/g, '$1');
-        }
-        
-        // Try additional compression for JSON-like data
-        if (data.includes('{') || data.includes('[')) {
-          compressed = compressed
-            .replace(/,\s*/g, ',') // Remove spaces after commas
-            .replace(/:\s*/g, ':') // Remove spaces after colons
-            .replace(/{\s*/g, '{') // Remove spaces after opening braces
-            .replace(/\s*}/g, '}') // Remove spaces before closing braces
-            .replace(/\[\s*/g, '[') // Remove spaces after opening brackets
-            .replace(/\s*\]/g, ']'); // Remove spaces before closing brackets
-        }
-        
-        if (compressed.length < sanitizedData.length) {
-          processedData = compressed;
-          isCompressed = true;
-          console.log(`Data compressed from ${sanitizedData.length} to ${compressed.length} chars (${Math.round((1 - compressed.length/sanitizedData.length) * 100)}% reduction)`);
-        }
-      } catch (compressionError) {
-        console.log('Compression failed, using original data:', compressionError instanceof Error ? compressionError.message : 'Unknown error');
-      }
-    }
     
     // Use chunking for data over 2KB (to handle 5MB+ files efficiently)
     if (processedData.length > 2000) {
@@ -175,7 +132,7 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    console.log(`Final processed data size: ${processedData.length} characters (chunked: ${isChunked}, compressed: ${isCompressed})`);
+    console.log(`Final processed data size: ${processedData.length} characters (chunked: ${isChunked})`);
     
     // Auto-detect environment and create appropriate base URL
     const host = request.headers.get('host') || '';
@@ -250,9 +207,7 @@ export async function POST(request: NextRequest) {
       processing: {
         originalSize: sanitizedData.length,
         processedSize: processedData.length,
-        isCompressed,
-        isChunked,
-        compressionRatio: isCompressed ? Math.round((1 - processedData.length/sanitizedData.length) * 100) : 0
+        isChunked
       },
       metadata: {
         timestamp: Date.now(),

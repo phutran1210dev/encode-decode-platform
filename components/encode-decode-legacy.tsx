@@ -268,13 +268,6 @@ export default function EncodeDecode({ initialDecodeData }: EncodeDecodeProps = 
               speed={100}
             />
           </div>
-          <div className="mt-2 text-green-500/70 text-sm font-mono">
-            <TypingText 
-              text=":: Penetration Testing File Transfer Protocol ::"
-              delay={3000}
-              speed={80}
-            />
-          </div>
         </div>
 
         <div className="mb-6">

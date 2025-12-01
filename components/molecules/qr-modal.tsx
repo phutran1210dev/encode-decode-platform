@@ -85,19 +85,15 @@ export function QRModal({ isOpen, onClose, data }: QRModalProps) {
       setIsGenerating(true);
       cleanupTimers();
       
-      // Use streaming API for better performance with large data
-      const useStreaming = data.length > 10000; // Use streaming for data > 10KB
-      const apiEndpoint = useStreaming ? '/api/qr-stream' : '/api/qr';
-      
-      const response = await fetch(apiEndpoint, {
+      // Always use simple QR API
+      const response = await fetch('/api/qr', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           data,
-          fileName: `encoded-data-${Date.now()}.txt`,
-          contentType: 'text/plain'
+          baseUrl: window.location.origin
         })
       });
       
@@ -110,11 +106,10 @@ export function QRModal({ isOpen, onClose, data }: QRModalProps) {
       setQrUrl(result.url);
       startTimer(); // Start 60s countdown
       
-      const isStreaming = result.streaming;
       toast({
         title: "QR Code generated",
-        description: isStreaming 
-          ? `Streaming mode: ${result.streaming.totalChunks} chunks` 
+        description: result.processing?.isChunked 
+          ? "Data cached for QR code" 
           : "Valid for 60 seconds"
       });
       

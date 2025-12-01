@@ -15,7 +15,7 @@ export function EncodedOutputSection({ encodedData, onCopy }: EncodedOutputSecti
   
   return (
     <MatrixCard 
-      title="ENCRYPTED PAYLOAD"
+      title="ENCODED OUTPUT"
       description="[BASE64 ENCODED DATA STREAM]"
       icon={Terminal}
     >

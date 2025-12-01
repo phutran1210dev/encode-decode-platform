@@ -34,6 +34,17 @@ export default function DecodePage() {
           if (response.ok) {
             const result: DecodedData = await response.json();
             setDecodedData(decodeURIComponent(result.data));
+            
+            // Clean up cache after successful retrieval
+            // Give user time to see the data (5 seconds), then delete cache
+            setTimeout(async () => {
+              try {
+                await fetch(`/api/qr-data/${dataId}`, { method: 'DELETE' });
+                console.log('Cache cleaned up for:', dataId);
+              } catch (err) {
+                console.error('Failed to cleanup cache:', err);
+              }
+            }, 5000);
           } else {
             const errorData = await response.json();
             setError(errorData.error || 'Failed to load data');

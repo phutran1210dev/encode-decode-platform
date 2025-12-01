@@ -65,3 +65,42 @@ export async function GET(
     );
   }
 }
+
+// DELETE endpoint to clear cache after download
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    
+    if (!id) {
+      return NextResponse.json(
+        { error: 'Data ID is required' },
+        { status: 400 }
+      );
+    }
+    
+    console.log(`QR Data API: Deleting cache for ID: ${id}`);
+    
+    const cache = globalThis.qrDataCache || new Map<string, CacheEntry>();
+    const existed = cache.has(id);
+    
+    if (existed) {
+      cache.delete(id);
+      console.log(`QR Data API: Cache deleted for ID: ${id}`);
+    }
+    
+    return NextResponse.json({
+      success: true,
+      existed
+    });
+    
+  } catch (error) {
+    console.error('QR Data deletion error:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete cache' },
+      { status: 500 }
+    );
+  }
+}
