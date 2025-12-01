@@ -31,6 +31,42 @@ export function QRCodeGenerator({ data, disabled = false }: QRCodeGeneratorProps
     try {
       setIsGenerating(true);
       
+      // Check if data is already uploaded to blob (starts with BLOB:)
+      if (data.startsWith('BLOB:')) {
+        const blobUrl = data.replace('BLOB:', '');
+        console.log(`Using pre-uploaded blob: ${blobUrl}`);
+        
+        // Generate QR code with blob URL
+        const response = await fetch('/api/qr', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            data: '',
+            blobUrl: blobUrl,
+            baseUrl: window.location.origin
+          })
+        });
+        
+        const result = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(result.error || 'Failed to generate QR code');
+        }
+        
+        setQrCode(result.qrCode);
+        setQrUrl(result.url);
+        
+        toast({
+          title: "✅ QR Code generated (Cloud Storage)",
+          description: `Scan QR from any device to download file.`,
+          duration: 6000
+        });
+        
+        return;
+      }
+      
       const QR_SIZE_LIMIT = 7000;
       
       // For large data, upload to blob storage first (client-side upload)
@@ -82,7 +118,7 @@ export function QRCodeGenerator({ data, disabled = false }: QRCodeGeneratorProps
         
         toast({
           title: "✅ QR Code generated (Cloud Storage)",
-          description: `File uploaded to cloud. Scan QR from any device. Expires in 1 hour.`,
+          description: `File uploaded to cloud. Scan QR from any device.`,
           duration: 6000
         });
         

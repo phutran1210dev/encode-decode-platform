@@ -139,12 +139,47 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
       
       // Encode files to base64
       const encoded = fileProcessingService.encodeFiles(filesToEncode);
-      setEncodedBase64(encoded);
       
-      toast({
-        title: "Encoding successful",
-        description: `${filesToEncode.length} file(s) encoded to base64`,
-      });
+      // Check if encoded data is large (> 1MB)
+      const SIZE_THRESHOLD = 1 * 1024 * 1024; // 1MB
+      
+      if (encoded.length > SIZE_THRESHOLD) {
+        console.log(`Large file detected (${(encoded.length / 1024 / 1024).toFixed(2)}MB), uploading to blob storage...`);
+        
+        // Upload to blob storage instead of storing in state
+        const blob = new Blob([encoded], { type: 'application/octet-stream' });
+        const formData = new FormData();
+        formData.append('file', blob);
+        formData.append('fileName', `encoded-${Date.now()}.bin`);
+        
+        const uploadResponse = await fetch('/api/upload-blob', {
+          method: 'POST',
+          body: formData
+        });
+        
+        if (!uploadResponse.ok) {
+          throw new Error('Failed to upload to cloud storage');
+        }
+        
+        const uploadResult = await uploadResponse.json();
+        
+        // Store blob URL instead of actual data
+        setEncodedBase64(`BLOB:${uploadResult.url}`);
+        
+        toast({
+          title: "✅ Encoding successful (Cloud Storage)",
+          description: `${filesToEncode.length} file(s) uploaded to cloud. Generate QR to share.`,
+          duration: 6000
+        });
+      } else {
+        // For small files, store normally
+        setEncodedBase64(encoded);
+        
+        toast({
+          title: "Encoding successful",
+          description: `${filesToEncode.length} file(s) encoded to base64`,
+        });
+      }
     } catch (error) {
       toast({
         title: "Encoding failed",
