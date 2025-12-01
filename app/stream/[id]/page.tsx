@@ -1,6 +1,6 @@
 'use client';
 
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import EncodeDecode from '@/components/encode-decode-legacy';
@@ -22,11 +22,13 @@ interface StreamChunk {
 
 export default function StreamPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const [streamedData, setStreamedData] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>('');
   const [progress, setProgress] = useState<{ current: number; total: number }>({ current: 0, total: 0 });
   const [metadata, setMetadata] = useState<StreamMetadata | null>(null);
+  const [autoDownload, setAutoDownload] = useState(false);
 
   useEffect(() => {
     const loadStreamData = async () => {
@@ -50,6 +52,17 @@ export default function StreamPage() {
         if (urlData) {
           // Stateless mode - data embedded in URL
           console.log(`Stream loaded from URL params: ${urlData.length} characters`);
+          
+          // Check if auto-download is requested
+          const shouldAutoDownload = urlParams.get('download') === 'true';
+          
+          if (shouldAutoDownload) {
+            // Trigger automatic download
+            console.log('Auto-download triggered');
+            window.location.href = `/api/download?data=${encodeURIComponent(urlData)}`;
+            return;
+          }
+          
           setStreamedData(urlData);
           setMetadata({
             originalSize: urlData.length,

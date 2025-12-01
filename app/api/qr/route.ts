@@ -90,71 +90,24 @@ export async function POST(request: NextRequest) {
     
     console.log(`Original data size: ${sanitizedData.length} characters`);
     
-    // For large data, use localStorage-based approach
+    // For large data, QR code is not feasible
     const QR_SIZE_LIMIT = 7000;
     if (sanitizedData.length > QR_SIZE_LIMIT) {
-      console.log(`Data too large for direct QR (${sanitizedData.length} chars), using localStorage-relay approach`);
+      console.log(`Data too large for direct QR (${sanitizedData.length} chars)`);
       
-      // Generate a unique stream ID
-      const streamId = Buffer.from(`${Date.now()}-${Math.random().toString(36).substring(2)}`).toString('base64url').substring(0, 16);
-      
-      // Auto-detect environment and create base URL
-      const host = request.headers.get('host') || 'localhost:3000';
-      const baseUrl = host.includes('localhost') || host.includes('127.0.0.1') 
-        ? `http://127.0.0.1:3000` 
-        : `https://${host}`;
-      
-      // For large data: Return instruction to use localStorage
-      // QR code will only contain the stream ID, data stays in browser
-      const streamUrl = new URL(`/stream/${streamId}`, baseUrl);
-      const finalUrl = streamUrl.toString();
-      
-      console.log(`Created localStorage-relay stream URL: ${finalUrl} (${finalUrl.length} chars)`);
-      
-      // Generate QR code for stream URL (short URL only)
-      let qrCodeDataURL: string;
-      try {
-        qrCodeDataURL = await QRCode.toDataURL(finalUrl, {
-          width: 400,
-          margin: 1,
-          color: {
-            dark: '#00ff00',
-            light: '#000000'
-          },
-          errorCorrectionLevel: 'M'
-        });
-      } catch (qrError) {
-        console.error('QR generation error:', qrError);
-        return NextResponse.json(
-          { error: 'Failed to generate QR code for large data' }, 
-          { status: 500 }
-        );
-      }
-      
+      // For large files: QR code not feasible, return error with guidance
       return NextResponse.json({
-        qrCode: qrCodeDataURL,
-        url: finalUrl,
-        streamId,
-        mode: 'streaming',
-        requiresLocalStorage: true, // Signal to frontend to store data in localStorage
-        streaming: {
-          streamId,
-          method: 'localStorage-relay',
-          originalSize: sanitizedData.length,
-          urlSize: finalUrl.length,
-          instructions: 'Data will be stored in browser localStorage and accessed via stream ID'
-        },
-        metadata: {
-          timestamp: Date.now(),
-          fileName: requestData.fileName || 'streamed-data.txt',
-          contentType: requestData.contentType || 'text/plain'
-        }
-      }, {
-        headers: {
-          'Cache-Control': 'no-store, no-cache, must-revalidate',
-          'X-Content-Type-Options': 'nosniff'
-        }
-      });
+        error: 'FILE_TOO_LARGE_FOR_QR',
+        message: 'File is too large for QR code transfer',
+        fileSize: sanitizedData.length,
+        maxQRSize: QR_SIZE_LIMIT,
+        recommendation: 'USE_DIRECT_DOWNLOAD',
+        alternativeMethods: [
+          'Click "Download All Files" button below',
+          'Transfer via AirDrop, Email, or Cloud storage',
+          'Use USB cable or file sharing service'
+        ]
+      }, { status: 400 });
     }
     
     console.log(`Data size OK for direct QR: ${sanitizedData.length} characters`);

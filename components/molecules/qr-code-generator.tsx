@@ -42,34 +42,29 @@ export function QRCodeGenerator({ data, disabled = false }: QRCodeGeneratorProps
         })
       });
       
-      if (!response.ok) {
-        throw new Error('Failed to generate QR code');
+      const result = await response.json();
+      
+      // Check if file is too large for QR
+      if (!response.ok || result.error === 'FILE_TOO_LARGE_FOR_QR') {
+        setQrCode('');
+        setQrUrl('');
+        
+        toast({
+          title: "📦 File too large for QR code",
+          description: `${(result.fileSize / 1024).toFixed(1)}KB exceeds ${(result.maxQRSize / 1024).toFixed(1)}KB limit. Use "Download All Files" button below instead.`,
+          variant: "destructive",
+          duration: 10000
+        });
+        return;
       }
       
-      const result = await response.json();
       setQrCode(result.qrCode);
       setQrUrl(result.url);
       
-      // Handle large files with warning
-      if (result.requiresLocalStorage && result.streamId) {
-        console.log(`Large file detected: ${data.length} chars`);
-        
-        // Store in localStorage as backup
-        const storageKey = `stream_${result.streamId}`;
-        localStorage.setItem(storageKey, data);
-        
-        toast({
-          title: "⚠️ Large file detected",
-          description: "QR code works on THIS device only. Use 'Copy Link' or download file for cross-device transfer.",
-          variant: "destructive",
-          duration: 8000
-        });
-      } else {
-        toast({
-          title: "✅ QR Code generated",
-          description: "Scan with any device to transfer data"
-        });
-      }
+      toast({
+        title: "✅ QR Code generated",
+        description: "Scan with any device to transfer data"
+      });
       
     } catch (error) {
       toast({
