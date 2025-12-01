@@ -71,8 +71,8 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Size validation with proper constants
-    const MAX_DATA_SIZE = 5 * 1024 * 1024; // 5MB
+    // Size validation with proper constants (max 50MB for streaming support)
+    const MAX_DATA_SIZE = 50 * 1024 * 1024; // 50MB
     if (sanitizedData.length > MAX_DATA_SIZE) {
       return NextResponse.json(
         { 
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
           details: {
             maxSize: MAX_DATA_SIZE,
             currentSize: sanitizedData.length,
-            maxSizeMB: '5MB'
+            maxSizeMB: '50MB'
           }
         },
         { status: 413 }
@@ -90,18 +90,58 @@ export async function POST(request: NextRequest) {
     
     console.log(`Original data size: ${sanitizedData.length} characters`);
     
-    // Validate QR code size limit (QR codes can handle ~7000 chars max)
-    if (sanitizedData.length > 7000) {
-      return NextResponse.json(
-        { 
-          error: `Data too large for QR code (${sanitizedData.length} characters). Maximum: 7000 characters.`,
-          suggestion: 'Please reduce file size or use direct sharing instead of QR code.'
-        }, 
-        { status: 400 }
-      );
+    // Auto-switch to streaming for large data (>7000 chars)
+    const QR_SIZE_LIMIT = 7000;
+    if (sanitizedData.length > QR_SIZE_LIMIT) {
+      console.log(`Data too large for direct QR (${sanitizedData.length} chars), switching to streaming mode`);
+      
+      // Forward to streaming API
+      try {
+        const host = request.headers.get('host') || 'localhost:3000';
+        const baseUrl = host.includes('localhost') || host.includes('127.0.0.1') 
+          ? `http://127.0.0.1:3000` 
+          : `https://${host}`;
+        
+        const streamResponse = await fetch(`${baseUrl}/api/qr-stream`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            data: sanitizedData,
+            fileName: requestData.fileName,
+            contentType: requestData.contentType
+          }),
+        });
+        
+        if (!streamResponse.ok) {
+          throw new Error(`Streaming API failed: ${streamResponse.status}`);
+        }
+        
+        const streamData = await streamResponse.json();
+        console.log(`Successfully switched to streaming mode: ${streamData.streamId}`);
+        
+        // Return streaming response with indicator
+        return NextResponse.json({
+          ...streamData,
+          mode: 'streaming',
+          reason: 'Data size exceeded direct QR limit',
+          directLimit: QR_SIZE_LIMIT
+        });
+        
+      } catch (streamError) {
+        console.error('Failed to create stream:', streamError);
+        return NextResponse.json(
+          { 
+            error: `Data too large for direct QR code (${sanitizedData.length} characters). Maximum: ${QR_SIZE_LIMIT} characters.`,
+            suggestion: 'Streaming mode unavailable. Please reduce file size or try again later.'
+          }, 
+          { status: 400 }
+        );
+      }
     }
     
-    console.log(`Data size OK for QR: ${sanitizedData.length} characters`);
+    console.log(`Data size OK for direct QR: ${sanitizedData.length} characters`);
     
     // Auto-detect environment and create appropriate base URL
     const host = request.headers.get('host') || '';

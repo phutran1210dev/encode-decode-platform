@@ -65,8 +65,8 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Size limits for streaming
-    const MAX_STREAM_SIZE = 100 * 1024 * 1024; // 100MB
+    // Size limits for streaming (max 50MB as per requirements)
+    const MAX_STREAM_SIZE = 50 * 1024 * 1024; // 50MB
     if (sanitizedData.length > MAX_STREAM_SIZE) {
       return NextResponse.json(
         { 
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
           details: {
             maxSize: MAX_STREAM_SIZE,
             currentSize: sanitizedData.length,
-            maxSizeMB: '100MB'
+            maxSizeMB: '50MB'
           }
         },
         { status: 413 }

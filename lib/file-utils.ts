@@ -8,10 +8,10 @@ import {
 } from '@/types';
 import JSZip from 'jszip';
 
-// Maximum file size (5MB per file for QR compatibility)
-export const MAX_FILE_SIZE = 5 * 1024 * 1024;
-// Maximum total size (25MB total for all files)
-export const MAX_TOTAL_SIZE = 25 * 1024 * 1024;
+// Maximum file size (50MB per file with streaming support)
+export const MAX_FILE_SIZE = 50 * 1024 * 1024;
+// Maximum total size (50MB total for all files)
+export const MAX_TOTAL_SIZE = 50 * 1024 * 1024;
 
 export const readFileAsText = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
