@@ -48,6 +48,15 @@ export default function StreamPage() {
         // First try to get data from URL query params (stateless approach)
         const urlParams = new URLSearchParams(window.location.search);
         const urlData = urlParams.get('d'); // 'd' = data parameter
+        const blobUrl = urlParams.get('blob'); // blob storage URL
+        
+        // Check for blob storage URL (large files)
+        if (blobUrl) {
+          console.log('Blob URL detected, triggering auto-download...');
+          // Redirect to download-blob API with auto-download
+          window.location.href = `/api/download-blob?url=${encodeURIComponent(blobUrl)}`;
+          return;
+        }
         
         if (urlData) {
           // Stateless mode - data embedded in URL

@@ -113,10 +113,11 @@ export async function POST(request: NextRequest) {
           ? `http://127.0.0.1:3000` 
           : `https://${host}`;
         
-        // Create download URL
-        const downloadUrl = `${baseUrl}/api/download-blob?url=${encodeURIComponent(blobMetadata.url)}`;
+        // Create stream URL with blob parameter for auto-download
+        const streamId = `blob-${Date.now()}`;
+        const downloadUrl = `${baseUrl}/stream/${streamId}?blob=${encodeURIComponent(blobMetadata.url)}`;
         
-        // Generate QR code with blob download URL
+        // Generate QR code with stream URL (will auto-trigger download)
         let qrCodeDataURL: string;
         try {
           qrCodeDataURL = await QRCode.toDataURL(downloadUrl, {
