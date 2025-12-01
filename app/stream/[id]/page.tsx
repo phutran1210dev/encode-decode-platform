@@ -103,8 +103,8 @@ export default function StreamPage() {
         
       } catch (err) {
         console.error('Error loading stream:', err);
-        const errorMessage = err instanceof Error ? err.message : 'Stream data not found or expired.';
-        setError(`${errorMessage}\n\nℹ️ For large files, please regenerate the QR code with the latest version to enable cross-device scanning.`);
+        // User-friendly error - QR code expired or not uploaded to server
+        setError('STREAM_NOT_FOUND');
       } finally {
         setIsLoading(false);
       }
@@ -143,17 +143,43 @@ export default function StreamPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-red-400 font-mono text-center max-w-md">
-          <div className="text-red-500 text-4xl mb-4">⚠️</div>
-          <h1 className="text-xl mb-4">STREAM ACCESS ERROR</h1>
-          <p className="text-red-400/70 mb-6">{error}</p>
-          <Link 
-            href="/" 
-            className="inline-block px-6 py-2 bg-green-600 text-black font-mono rounded hover:bg-green-500 transition-colors"
-          >
-            RETURN TO PLATFORM
-          </Link>
+      <div className="min-h-screen bg-black flex items-center justify-center p-4">
+        <div className="max-w-2xl w-full">
+          <div className="text-center mb-8">
+            <div className="text-green-500 text-8xl mb-6 animate-pulse">404</div>
+            <h1 className="text-3xl font-mono text-green-400 mb-4">QR CODE EXPIRED</h1>
+            <div className="space-y-3 text-green-400/70 font-mono text-sm mb-8">
+              <p>⚠️ This QR code link is no longer valid</p>
+              <p>🔄 QR codes expire after 30-60 minutes for security</p>
+              <p>📱 Please generate a new QR code from the encode page</p>
+            </div>
+          </div>
+          
+          <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-6 mb-6">
+            <h2 className="text-green-400 font-mono text-lg mb-4">HOW TO FIX:</h2>
+            <ol className="text-green-400/70 font-mono text-sm space-y-3 list-decimal list-inside">
+              <li>Go back to the encode page</li>
+              <li>Upload your file again (if needed)</li>
+              <li>Click "ENCODE DATA"</li>
+              <li>Generate a new QR code</li>
+              <li>Scan the new QR code within 30 minutes</li>
+            </ol>
+          </div>
+          
+          <div className="flex gap-3 justify-center">
+            <Link 
+              href="/" 
+              className="px-6 py-3 bg-green-600 text-black font-mono rounded hover:bg-green-500 transition-colors font-semibold"
+            >
+              ← BACK TO HOME
+            </Link>
+            <Link 
+              href="/?tab=encode" 
+              className="px-6 py-3 bg-green-500/20 text-green-400 border border-green-500/50 font-mono rounded hover:bg-green-500/30 transition-colors font-semibold"
+            >
+              ENCODE NEW DATA →
+            </Link>
+          </div>
         </div>
       </div>
     );
