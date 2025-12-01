@@ -146,31 +146,41 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
       if (encoded.length > SIZE_THRESHOLD) {
         console.log(`Large file detected (${(encoded.length / 1024 / 1024).toFixed(2)}MB), uploading to blob storage...`);
         
-        // Upload to blob storage instead of storing in state
-        const blob = new Blob([encoded], { type: 'application/octet-stream' });
-        const formData = new FormData();
-        formData.append('file', blob);
-        formData.append('fileName', `encoded-${Date.now()}.bin`);
-        
-        const uploadResponse = await fetch('/api/upload-blob', {
-          method: 'POST',
-          body: formData
-        });
-        
-        if (!uploadResponse.ok) {
-          throw new Error('Failed to upload to cloud storage');
+        try {
+          // Use Vercel Blob client-side upload to avoid serverless payload limit
+          const { upload } = await import('@vercel/blob/client');
+          
+          const blob = new Blob([encoded], { type: 'application/octet-stream' });
+          const fileName = `encoded-${Date.now()}.bin`;
+          
+          const newBlob = await upload(fileName, blob, {
+            access: 'public',
+            handleUploadUrl: '/api/upload-blob-client',
+          });
+          
+          console.log(`Uploaded to blob: ${newBlob.url}`);
+          
+          // Store blob URL instead of actual data
+          setEncodedBase64(`BLOB:${newBlob.url}`);
+          
+          toast({
+            title: "✅ Encoding successful (Cloud Storage)",
+            description: `${filesToEncode.length} file(s) uploaded to cloud. Generate QR to share.`,
+            duration: 6000
+          });
+        } catch (uploadError) {
+          console.error('Blob upload error:', uploadError);
+          
+          // Fallback: Store encoded data locally (may cause UI lag for very large files)
+          setEncodedBase64(encoded);
+          
+          toast({
+            title: "⚠️ Encoding successful (Local)",
+            description: `File too large for cloud upload. QR generation may not work.`,
+            variant: "destructive",
+            duration: 8000
+          });
         }
-        
-        const uploadResult = await uploadResponse.json();
-        
-        // Store blob URL instead of actual data
-        setEncodedBase64(`BLOB:${uploadResult.url}`);
-        
-        toast({
-          title: "✅ Encoding successful (Cloud Storage)",
-          description: `${filesToEncode.length} file(s) uploaded to cloud. Generate QR to share.`,
-          duration: 6000
-        });
       } else {
         // For small files, store normally
         setEncodedBase64(encoded);
