@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    const { data, fileName, contentType } = requestData;
+    const { data, fileName, contentType, streamId: providedStreamId } = requestData;
     
     // Input validation
     if (!data) {
@@ -100,8 +100,8 @@ export async function POST(request: NextRequest) {
     
     console.log(`Data split into ${chunks.length} chunks (${dynamicChunkSize} bytes each)`);
     
-    // Generate cryptographically secure stream ID
-    const streamId = Buffer.from(`${Date.now()}-${Math.random()}-${sanitizedData.length}`).toString('base64url').substring(0, 20);
+    // Use provided streamId or generate new one
+    const streamId = providedStreamId || Buffer.from(`${Date.now()}-${Math.random()}-${sanitizedData.length}`).toString('base64url').substring(0, 20);
     
     // Calculate expiration based on data size
     const expirationMinutes = sanitizedData.length > 50000000 ? 60 : 30; // 60min for >50MB, 30min otherwise
@@ -155,8 +155,25 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    console.log('QR code generated successfully for streaming data');
+    console.log(`Stream data stored successfully with ID: ${streamId}`);
     
+    // If streamId was provided (from client), don't return QR code (already generated)
+    if (providedStreamId) {
+      return NextResponse.json({
+        success: true,
+        streamId,
+        message: 'Data uploaded successfully',
+        streaming: {
+          totalChunks: chunks.length,
+          chunkSize: dynamicChunkSize,
+          originalSize: sanitizedData.length,
+          expiresIn: expirationTime,
+          expiresAt: Date.now() + expirationTime
+        }
+      });
+    }
+    
+    // Original flow - generate QR code
     return NextResponse.json({
       qrCode: qrCodeDataURL,
       url: streamUrl,

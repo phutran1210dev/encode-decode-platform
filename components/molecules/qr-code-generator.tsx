@@ -50,16 +50,43 @@ export function QRCodeGenerator({ data, disabled = false }: QRCodeGeneratorProps
       setQrCode(result.qrCode);
       setQrUrl(result.url);
       
-      // If requiresLocalStorage, store data in localStorage with streamId
+      // If requiresLocalStorage, we need to upload data to server for cross-device access
       if (result.requiresLocalStorage && result.streamId) {
-        const storageKey = `stream_${result.streamId}`;
-        localStorage.setItem(storageKey, data);
-        console.log(`Stored large data in localStorage with key: ${storageKey}`);
+        console.log(`Uploading large data to server with streamId: ${result.streamId}`);
         
-        toast({
-          title: "QR Code generated (Large file mode)",
-          description: "Data stored locally. Scan QR on this device or use the same browser."
-        });
+        // Upload data to server-side storage
+        try {
+          const uploadResponse = await fetch('/api/qr-stream', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              streamId: result.streamId,
+              data: data
+            })
+          });
+          
+          if (!uploadResponse.ok) {
+            throw new Error('Failed to upload data to server');
+          }
+          
+          toast({
+            title: "QR Code generated (Large file mode)",
+            description: "Data uploaded to server. QR code can be scanned from any device."
+          });
+        } catch (uploadError) {
+          console.error('Failed to upload data:', uploadError);
+          // Fallback to localStorage
+          const storageKey = `stream_${result.streamId}`;
+          localStorage.setItem(storageKey, data);
+          
+          toast({
+            title: "QR Code generated (Local mode)",
+            description: "Data stored locally. Scan QR on this device only.",
+            variant: "destructive"
+          });
+        }
       } else {
         toast({
           title: "QR Code generated",
