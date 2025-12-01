@@ -71,7 +71,7 @@ export async function getBlobMetadata(url: string): Promise<{ exists: boolean; s
       size: metadata.size,
       contentType: metadata.contentType,
     };
-  } catch (error) {
+  } catch {
     return { exists: false };
   }
 }
