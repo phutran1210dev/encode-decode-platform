@@ -341,17 +341,31 @@ export const downloadFile = (content: string, filename: string, isBinary: boolea
   }
   
   try {
-    let url: string;
+    let blob: Blob;
     
     if (isBinary && content.startsWith('data:')) {
-      // For binary files stored as data URLs, use the data URL directly
-      url = content;
+      // For binary files stored as data URLs, extract MIME type and convert to blob
+      const matches = content.match(/^data:([^;]+);base64,(.+)$/);
+      if (matches) {
+        const mimeType = matches[1];
+        const base64Data = matches[2];
+        const byteCharacters = atob(base64Data);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        blob = new Blob([byteArray], { type: mimeType });
+      } else {
+        // Fallback if data URL format is unexpected
+        blob = new Blob([content], { type: 'application/octet-stream' });
+      }
     } else {
-      // For text files, create a blob
-      const blob = new Blob([content], { type: isBinary ? 'application/octet-stream' : 'text/plain' });
-      url = URL.createObjectURL(blob);
+      // For text files, create a blob with appropriate MIME type
+      blob = new Blob([content], { type: isBinary ? 'application/octet-stream' : 'text/plain' });
     }
     
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = filename;
@@ -359,11 +373,7 @@ export const downloadFile = (content: string, filename: string, isBinary: boolea
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    
-    // Only revoke URL if we created it (not for data URLs)
-    if (!content.startsWith('data:')) {
-      URL.revokeObjectURL(url);
-    }
+    URL.revokeObjectURL(url);
   } catch (error) {
     if (error instanceof Error) {
       throw new FileProcessingError(`Failed to download file: ${error.message}`);
