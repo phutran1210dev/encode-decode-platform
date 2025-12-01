@@ -183,15 +183,26 @@ export default function StreamPage() {
                   <div className="bg-green-500/5 border border-green-500/20 rounded-md p-4">
                     <div className="text-green-400 font-mono text-sm mb-3 flex items-center gap-2">
                       <span className="text-green-500">⚡</span>
-                      RECOVERY PROTOCOL:
+                      RECOMMENDED SOLUTIONS:
                     </div>
-                    <ol className="text-green-400/70 font-mono text-xs space-y-2 ml-6 list-decimal">
-                      <li className="pl-2">Navigate to encode page</li>
-                      <li className="pl-2">Upload your file again (if needed)</li>
-                      <li className="pl-2">Click "ENCODE DATA" button</li>
-                      <li className="pl-2">Generate new QR code</li>
-                      <li className="pl-2">Scan within 30 minutes</li>
-                    </ol>
+                    <div className="space-y-3">
+                      <div className="text-green-400/70 font-mono text-xs">
+                        <div className="text-yellow-400 mb-2">🔄 For Small Files (&lt;7KB):</div>
+                        <ol className="ml-6 space-y-1 list-decimal">
+                          <li className="pl-2">Regenerate QR code</li>
+                          <li className="pl-2">Scan within 5 minutes</li>
+                        </ol>
+                      </div>
+                      
+                      <div className="text-green-400/70 font-mono text-xs">
+                        <div className="text-blue-400 mb-2">📱 For Large Files (ZIP, Images):</div>
+                        <ol className="ml-6 space-y-1 list-decimal">
+                          <li className="pl-2">Use "Download All Files" button</li>
+                          <li className="pl-2">Transfer via AirDrop/Email/Cloud</li>
+                          <li className="pl-2">Or use "Copy Link" and paste in browser</li>
+                        </ol>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Loading Animation Effect */}

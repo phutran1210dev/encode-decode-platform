@@ -50,47 +50,24 @@ export function QRCodeGenerator({ data, disabled = false }: QRCodeGeneratorProps
       setQrCode(result.qrCode);
       setQrUrl(result.url);
       
-      // If requiresLocalStorage, we need to upload data to server for cross-device access
+      // Handle large files with warning
       if (result.requiresLocalStorage && result.streamId) {
-        console.log(`Uploading large data to server with streamId: ${result.streamId}`);
+        console.log(`Large file detected: ${data.length} chars`);
         
-        // Upload data to server-side storage
-        try {
-          const uploadResponse = await fetch('/api/qr-stream', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              streamId: result.streamId,
-              data: data
-            })
-          });
-          
-          if (!uploadResponse.ok) {
-            throw new Error('Failed to upload data to server');
-          }
-          
-          toast({
-            title: "QR Code generated (Large file mode)",
-            description: "Data uploaded to server. QR code can be scanned from any device."
-          });
-        } catch (uploadError) {
-          console.error('Failed to upload data:', uploadError);
-          // Fallback to localStorage
-          const storageKey = `stream_${result.streamId}`;
-          localStorage.setItem(storageKey, data);
-          
-          toast({
-            title: "QR Code generated (Local mode)",
-            description: "Data stored locally. Scan QR on this device only.",
-            variant: "destructive"
-          });
-        }
+        // Store in localStorage as backup
+        const storageKey = `stream_${result.streamId}`;
+        localStorage.setItem(storageKey, data);
+        
+        toast({
+          title: "⚠️ Large file detected",
+          description: "QR code works on THIS device only. Use 'Copy Link' or download file for cross-device transfer.",
+          variant: "destructive",
+          duration: 8000
+        });
       } else {
         toast({
-          title: "QR Code generated",
-          description: "Scan with your phone to auto-fill decode"
+          title: "✅ QR Code generated",
+          description: "Scan with any device to transfer data"
         });
       }
       
@@ -165,20 +142,27 @@ export function QRCodeGenerator({ data, disabled = false }: QRCodeGeneratorProps
               />
             </div>
             
-            <div className="text-center space-y-2">
+            <div className="text-center space-y-3">
               <div className="flex items-center justify-center gap-2 text-green-400 text-sm font-mono">
                 <Smartphone className="h-4 w-4" />
                 SCAN TO AUTO-FILL DECODE
               </div>
               
-              <div className="flex gap-2 justify-center">
+              {/* Warning for large files */}
+              {data.length > 7000 && (
+                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded p-2 text-xs font-mono text-yellow-400">
+                  ⚠️ Large file: QR works on this device only
+                </div>
+              )}
+              
+              <div className="flex gap-2 justify-center flex-wrap">
                 <MatrixButton
                   variant="outline"
                   size="sm"
                   onClick={downloadQR}
                   icon={Download}
                 >
-                  DOWNLOAD
+                  DOWNLOAD QR
                 </MatrixButton>
                 
                 <MatrixButton
@@ -190,6 +174,13 @@ export function QRCodeGenerator({ data, disabled = false }: QRCodeGeneratorProps
                   COPY LINK
                 </MatrixButton>
               </div>
+              
+              {/* Alternate method for large files */}
+              {data.length > 7000 && (
+                <div className="text-xs font-mono text-green-400/60 pt-2 border-t border-green-500/20">
+                  💡 Tip: Use "Download All Files" below to transfer to another device
+                </div>
+              )}
             </div>
           </div>
         </div>
