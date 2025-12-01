@@ -11,10 +11,13 @@ interface EncodedOutputProps {
 }
 
 export function EncodedOutput({ value, onCopy }: EncodedOutputProps) {
-  // Check if this is a blob URL
+  // Check if this is cloud storage URL
+  const isSupabaseMode = value.startsWith('SUPABASE:');
   const isBlobMode = value.startsWith('BLOB:');
-  const displayValue = isBlobMode 
-    ? `🌥️ CLOUD STORAGE MODE\n\nYour file has been uploaded to cloud storage.\n\nSize: Large file (optimized for QR transfer)\nStorage: Vercel Blob Storage\nStatus: Ready for QR generation\n\n✅ Click "GENERATE QR" below to create a scannable QR code.\n\nBlob URL:\n${value.replace('BLOB:', '')}` 
+  const isCloudMode = isSupabaseMode || isBlobMode;
+  
+  const displayValue = isCloudMode
+    ? `🌥️ CLOUD STORAGE MODE\n\nYour file has been uploaded to cloud storage.\n\nSize: Large file (optimized for QR transfer)\nStorage: ${isSupabaseMode ? 'Supabase Storage (Free)' : 'Vercel Blob Storage'}\nStatus: Ready for QR generation\n\n✅ Click "GENERATE QR" below to create a scannable QR code.\n\nStorage URL:\n${value.replace('SUPABASE:', '').replace('BLOB:', '')}` 
     : value;
   
   return (
@@ -26,7 +29,7 @@ export function EncodedOutput({ value, onCopy }: EncodedOutputProps) {
         readOnly
         className="min-h-[300px] font-mono text-xs bg-black/50 border-green-500/30 text-green-300 placeholder:text-green-600/50"
       />
-      {value && !isBlobMode && (
+      {value && !isCloudMode && (
         <MatrixButton 
           onClick={onCopy}
           icon={Copy}

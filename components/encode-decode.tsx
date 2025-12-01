@@ -144,32 +144,38 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
       const SIZE_THRESHOLD = 1 * 1024 * 1024; // 1MB
       
       if (encoded.length > SIZE_THRESHOLD) {
-        console.log(`Large file detected (${(encoded.length / 1024 / 1024).toFixed(2)}MB), uploading to blob storage...`);
+        console.log(`Large file detected (${(encoded.length / 1024 / 1024).toFixed(2)}MB), uploading to Supabase storage...`);
         
         try {
-          // Use Vercel Blob client-side upload to avoid serverless payload limit
-          const { upload } = await import('@vercel/blob/client');
-          
+          // Upload to Supabase Storage
           const blob = new Blob([encoded], { type: 'application/octet-stream' });
-          const fileName = `encoded-${Date.now()}.bin`;
+          const formData = new FormData();
+          formData.append('file', blob);
+          formData.append('fileName', `encoded-${Date.now()}.bin`);
           
-          const newBlob = await upload(fileName, blob, {
-            access: 'public',
-            handleUploadUrl: '/api/upload-blob-client',
+          const uploadResponse = await fetch('/api/upload-supabase', {
+            method: 'POST',
+            body: formData
           });
           
-          console.log(`Uploaded to blob: ${newBlob.url}`);
+          if (!uploadResponse.ok) {
+            throw new Error('Failed to upload to Supabase');
+          }
           
-          // Store blob URL instead of actual data
-          setEncodedBase64(`BLOB:${newBlob.url}`);
+          const uploadResult = await uploadResponse.json();
+          
+          console.log(`Uploaded to Supabase: ${uploadResult.url}`);
+          
+          // Store Supabase URL instead of actual data
+          setEncodedBase64(`SUPABASE:${uploadResult.url}`);
           
           toast({
-            title: "✅ Encoding successful (Cloud Storage)",
+            title: "✅ Encoding successful (Supabase Storage)",
             description: `${filesToEncode.length} file(s) uploaded to cloud. Generate QR to share.`,
             duration: 6000
           });
         } catch (uploadError) {
-          console.error('Blob upload error:', uploadError);
+          console.error('Supabase upload error:', uploadError);
           
           // Fallback: Store encoded data locally (may cause UI lag for very large files)
           setEncodedBase64(encoded);

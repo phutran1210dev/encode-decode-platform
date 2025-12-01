@@ -75,13 +75,18 @@ export default function StreamPage() {
             setProgress({ current: 1, total: 1 });
             setIsLoading(false);
             
-            // Delete blob after loading (cleanup) - async, don't wait
+            // Delete file after loading (cleanup) - async, don't wait
             setTimeout(() => {
-              fetch(`/api/delete-blob`, {
+              // Detect storage type and use appropriate API
+              const deleteEndpoint = blobUrl.includes('supabase.co') 
+                ? '/api/delete-supabase' 
+                : '/api/delete-blob';
+              
+              fetch(deleteEndpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ url: blobUrl })
-              }).catch(err => console.error('Failed to delete blob:', err));
+              }).catch(err => console.error('Failed to delete file:', err));
             }, 1000);
             
             return;

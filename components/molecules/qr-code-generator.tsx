@@ -31,12 +31,15 @@ export function QRCodeGenerator({ data, disabled = false }: QRCodeGeneratorProps
     try {
       setIsGenerating(true);
       
-      // Check if data is already uploaded to blob (starts with BLOB:)
-      if (data.startsWith('BLOB:')) {
-        const blobUrl = data.replace('BLOB:', '');
-        console.log(`Using pre-uploaded blob: ${blobUrl}`);
+      // Check if data is already uploaded to cloud storage
+      const isSupabase = data.startsWith('SUPABASE:');
+      const isBlob = data.startsWith('BLOB:');
+      
+      if (isSupabase || isBlob) {
+        const storageUrl = data.replace('SUPABASE:', '').replace('BLOB:', '');
+        console.log(`Using pre-uploaded file: ${storageUrl}`);
         
-        // Generate QR code with blob URL
+        // Generate QR code with storage URL
         const response = await fetch('/api/qr', {
           method: 'POST',
           headers: {
@@ -44,7 +47,7 @@ export function QRCodeGenerator({ data, disabled = false }: QRCodeGeneratorProps
           },
           body: JSON.stringify({
             data: '',
-            blobUrl: blobUrl,
+            blobUrl: storageUrl,
             baseUrl: window.location.origin
           })
         });
