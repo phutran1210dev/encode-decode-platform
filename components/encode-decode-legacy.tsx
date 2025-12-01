@@ -261,13 +261,6 @@ export default function EncodeDecode({ initialDecodeData }: EncodeDecodeProps = 
             </h1>
             <Shield className="h-8 w-8 text-green-500" />
           </div>
-          <div className="text-green-400 text-lg font-mono">
-            <TypingText 
-              text="[SECURE FILE ENCODING/DECODING SYSTEM]"
-              delay={1000}
-              speed={100}
-            />
-          </div>
         </div>
 
         <div className="mb-6">
