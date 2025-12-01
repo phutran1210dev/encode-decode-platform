@@ -264,13 +264,6 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
     setDecodedData(null);
     setManualText('');
     setInputMode('file');
-    
-    // Reset security states
-    setFailedPasswordAttempts(0);
-    setIsStreamLocked(false);
-    setHasSuccessfulDecrypt(false);
-    setEncodePassword('');
-    setDecodePassword('');
   };
 
   return (
