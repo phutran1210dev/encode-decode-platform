@@ -5,6 +5,7 @@ export interface FileData {
   readonly type: string;
   readonly lastModified: number;
   readonly isBinary?: boolean;
+  readonly path?: string; // Preserve original file path/directory structure
 }
 
 export interface EncodedData {
@@ -66,7 +67,8 @@ export const isValidFileData = (data: unknown): data is FileData => {
     isPositiveNumber(obj.size) &&
     typeof obj.type === 'string' &&
     isSafeInteger(obj.lastModified) &&
-    (obj.isBinary === undefined || typeof obj.isBinary === 'boolean')
+    (obj.isBinary === undefined || typeof obj.isBinary === 'boolean') &&
+    (obj.path === undefined || typeof obj.path === 'string')
   );
 };
 

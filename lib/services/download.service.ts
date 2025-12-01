@@ -11,7 +11,7 @@ export class DownloadService implements IDownloadService {
   
   // Single Responsibility: Handle single file download
   downloadSingle(file: FileData): void {
-    downloadFileUtil(file.content, file.name, file.isBinary);
+    downloadFileUtil(file.content, file.name, file.isBinary, file.path);
   }
 
   // Single Responsibility: Handle multiple files download

@@ -81,6 +81,7 @@ export const extractZipFile = async (zipFile: File): Promise<FileData[]> => {
         }
         
         try {
+          // Preserve full relative path for directory structure
           const fileName = relativePath.split('/').pop() || relativePath;
           
           // Determine if this is likely a binary file based on extension
@@ -110,12 +111,13 @@ export const extractZipFile = async (zipFile: File): Promise<FileData[]> => {
           }
           
           extractedFiles.push({
-            name: `[${zipFile.name}] ${fileName}`,
+            name: fileName, // Keep original filename only
             content,
             size,
             type: fileType,
             lastModified: zipEntry.date?.getTime() || Date.now(),
             isBinary,
+            path: relativePath, // Preserve full path from ZIP
           });
         } catch (error) {
           // Skip files that can't be processed
@@ -313,7 +315,7 @@ export const decodeFromBase64 = (base64String: string): EncodedData => {
     if (!isValidEncodedData(data)) {
       throw new ValidationError('Decoded data does not match expected format', {
         receivedType: typeof data,
-        hasFiles: Array.isArray((data as any)?.files)
+        hasFiles: Array.isArray((data as Record<string, unknown>)?.files)
       });
     }
     
@@ -331,7 +333,7 @@ export const decodeFromBase64 = (base64String: string): EncodedData => {
   }
 };
 
-export const downloadFile = (content: string, filename: string, isBinary: boolean = false) => {
+export const downloadFile = (content: string, filename: string, isBinary: boolean = false, path?: string) => {
   if (!content || typeof content !== 'string') {
     throw new ValidationError('Invalid content: must be a non-empty string');
   }
@@ -368,7 +370,8 @@ export const downloadFile = (content: string, filename: string, isBinary: boolea
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = filename;
+    // Use path if available to preserve directory structure, otherwise use filename
+    a.download = path || filename;
     a.style.display = 'none';
     document.body.appendChild(a);
     a.click();
@@ -384,7 +387,7 @@ export const downloadFile = (content: string, filename: string, isBinary: boolea
 
 export const downloadAllFiles = (files: readonly FileData[]) => {
   files.forEach(file => {
-    downloadFile(file.content, file.name, file.isBinary);
+    downloadFile(file.content, file.name, file.isBinary, file.path);
   });
 };
 
