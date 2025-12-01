@@ -52,25 +52,47 @@ export default function StreamPage() {
         
         // Check for blob storage URL (large files)
         if (blobUrl) {
-          console.log('Blob URL detected, triggering auto-download...');
-          // Redirect to download-blob API with auto-download
-          window.location.href = `/api/download-blob?url=${encodeURIComponent(blobUrl)}`;
-          return;
+          console.log('Blob URL detected, fetching data from blob storage...');
+          
+          try {
+            // Fetch data from blob storage
+            const blobResponse = await fetch(blobUrl);
+            if (!blobResponse.ok) {
+              throw new Error('Failed to fetch blob data');
+            }
+            
+            const blobData = await blobResponse.text();
+            console.log(`Blob data loaded: ${blobData.length} characters`);
+            
+            // Set the data to be filled into decoder
+            setStreamedData(blobData);
+            setMetadata({
+              originalSize: blobData.length,
+              fileName: 'blob-data',
+              contentType: 'application/octet-stream'
+            });
+            setProgress({ current: 1, total: 1 });
+            setIsLoading(false);
+            
+            // Delete blob after loading (cleanup)
+            fetch(`/api/delete-blob`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url: blobUrl })
+            }).catch(err => console.error('Failed to delete blob:', err));
+            
+            return;
+          } catch (blobError) {
+            console.error('Error loading blob:', blobError);
+            setError('BLOB_LOAD_FAILED');
+            setIsLoading(false);
+            return;
+          }
         }
         
         if (urlData) {
           // Stateless mode - data embedded in URL
           console.log(`Stream loaded from URL params: ${urlData.length} characters`);
-          
-          // Check if auto-download is requested
-          const shouldAutoDownload = urlParams.get('download') === 'true';
-          
-          if (shouldAutoDownload) {
-            // Trigger automatic download
-            console.log('Auto-download triggered');
-            window.location.href = `/api/download?data=${encodeURIComponent(urlData)}`;
-            return;
-          }
           
           setStreamedData(urlData);
           setMetadata({
