@@ -55,12 +55,13 @@ export default function StreamPage() {
           console.log('Blob URL detected, fetching data from blob storage...');
           
           try {
-            // Fetch data from blob storage
+            // Fetch data directly from blob storage (client-side to avoid serverless limits)
             const blobResponse = await fetch(blobUrl);
             if (!blobResponse.ok) {
               throw new Error('Failed to fetch blob data');
             }
             
+            // Get blob data
             const blobData = await blobResponse.text();
             console.log(`Blob data loaded: ${blobData.length} characters`);
             
@@ -74,12 +75,14 @@ export default function StreamPage() {
             setProgress({ current: 1, total: 1 });
             setIsLoading(false);
             
-            // Delete blob after loading (cleanup)
-            fetch(`/api/delete-blob`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ url: blobUrl })
-            }).catch(err => console.error('Failed to delete blob:', err));
+            // Delete blob after loading (cleanup) - async, don't wait
+            setTimeout(() => {
+              fetch(`/api/delete-blob`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: blobUrl })
+              }).catch(err => console.error('Failed to delete blob:', err));
+            }, 1000);
             
             return;
           } catch (blobError) {

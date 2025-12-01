@@ -31,6 +31,65 @@ export function QRCodeGenerator({ data, disabled = false }: QRCodeGeneratorProps
     try {
       setIsGenerating(true);
       
+      const QR_SIZE_LIMIT = 7000;
+      
+      // For large data, upload to blob storage first (client-side upload)
+      if (data.length > QR_SIZE_LIMIT) {
+        console.log(`Data too large (${data.length} chars), uploading to blob storage...`);
+        
+        // Create a file from the data
+        const blob = new Blob([data], { type: 'application/octet-stream' });
+        const formData = new FormData();
+        formData.append('file', blob);
+        formData.append('fileName', `data-${Date.now()}.bin`);
+        
+        // Upload to blob storage
+        const uploadResponse = await fetch('/api/upload-blob', {
+          method: 'POST',
+          body: formData
+        });
+        
+        if (!uploadResponse.ok) {
+          throw new Error('Failed to upload to blob storage');
+        }
+        
+        const uploadResult = await uploadResponse.json();
+        const blobUrl = uploadResult.url;
+        
+        console.log(`Uploaded to blob: ${blobUrl}`);
+        
+        // Generate QR code with blob URL
+        const response = await fetch('/api/qr', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            data: '', // Empty data, will use blob URL
+            blobUrl: blobUrl,
+            baseUrl: window.location.origin
+          })
+        });
+        
+        const result = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(result.error || 'Failed to generate QR code');
+        }
+        
+        setQrCode(result.qrCode);
+        setQrUrl(result.url);
+        
+        toast({
+          title: "✅ QR Code generated (Cloud Storage)",
+          description: `File uploaded to cloud. Scan QR from any device. Expires in 1 hour.`,
+          duration: 6000
+        });
+        
+        return;
+      }
+      
+      // For small data, send directly
       const response = await fetch('/api/qr', {
         method: 'POST',
         headers: {
