@@ -61,6 +61,23 @@ export default function StreamPage() {
           return;
         }
         
+        // Try to load from localStorage (for large files)
+        const storageKey = `stream_${streamId}`;
+        const localData = localStorage.getItem(storageKey);
+        
+        if (localData) {
+          console.log(`Stream loaded from localStorage: ${localData.length} characters`);
+          setStreamedData(localData);
+          setMetadata({
+            originalSize: localData.length,
+            fileName: 'streamed-data.txt',
+            contentType: 'text/plain'
+          });
+          setProgress({ current: 1, total: 1 });
+          setIsLoading(false);
+          return;
+        }
+        
         // Fallback: Try to load from cache-based API (legacy support)
         console.log(`Attempting to load from cache API for stream: ${streamId}`);
         

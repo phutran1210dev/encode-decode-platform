@@ -90,13 +90,13 @@ export async function POST(request: NextRequest) {
     
     console.log(`Original data size: ${sanitizedData.length} characters`);
     
-    // For large data, create a stateless streaming solution using URL chunks
+    // For large data, use localStorage-based approach
     const QR_SIZE_LIMIT = 7000;
     if (sanitizedData.length > QR_SIZE_LIMIT) {
-      console.log(`Data too large for direct QR (${sanitizedData.length} chars), using chunked URL approach`);
+      console.log(`Data too large for direct QR (${sanitizedData.length} chars), using localStorage-relay approach`);
       
-      // Generate a unique stream ID (stateless - for URL identification only)
-      const streamId = Buffer.from(`${Date.now()}-${Math.random().toString(36)}`).toString('base64url').substring(0, 16);
+      // Generate a unique stream ID
+      const streamId = Buffer.from(`${Date.now()}-${Math.random().toString(36).substring(2)}`).toString('base64url').substring(0, 16);
       
       // Auto-detect environment and create base URL
       const host = request.headers.get('host') || 'localhost:3000';
@@ -104,15 +104,14 @@ export async function POST(request: NextRequest) {
         ? `http://127.0.0.1:3000` 
         : `https://${host}`;
       
-      // Create stream URL with embedded data in query param
-      // Use special marker to indicate this is chunked data
+      // For large data: Return instruction to use localStorage
+      // QR code will only contain the stream ID, data stays in browser
       const streamUrl = new URL(`/stream/${streamId}`, baseUrl);
-      streamUrl.searchParams.set('d', sanitizedData); // 'd' = data parameter
       const finalUrl = streamUrl.toString();
       
-      console.log(`Created stateless stream URL: ${finalUrl.length} chars`);
+      console.log(`Created localStorage-relay stream URL: ${finalUrl} (${finalUrl.length} chars)`);
       
-      // Generate QR code for stream URL
+      // Generate QR code for stream URL (short URL only)
       let qrCodeDataURL: string;
       try {
         qrCodeDataURL = await QRCode.toDataURL(finalUrl, {
@@ -122,7 +121,7 @@ export async function POST(request: NextRequest) {
             dark: '#00ff00',
             light: '#000000'
           },
-          errorCorrectionLevel: 'L' // Low error correction for maximum data capacity
+          errorCorrectionLevel: 'M'
         });
       } catch (qrError) {
         console.error('QR generation error:', qrError);
@@ -135,12 +134,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         qrCode: qrCodeDataURL,
         url: finalUrl,
+        streamId,
         mode: 'streaming',
+        requiresLocalStorage: true, // Signal to frontend to store data in localStorage
         streaming: {
           streamId,
-          method: 'stateless-url',
+          method: 'localStorage-relay',
           originalSize: sanitizedData.length,
-          urlSize: finalUrl.length
+          urlSize: finalUrl.length,
+          instructions: 'Data will be stored in browser localStorage and accessed via stream ID'
         },
         metadata: {
           timestamp: Date.now(),

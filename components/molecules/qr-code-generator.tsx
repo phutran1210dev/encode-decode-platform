@@ -50,10 +50,22 @@ export function QRCodeGenerator({ data, disabled = false }: QRCodeGeneratorProps
       setQrCode(result.qrCode);
       setQrUrl(result.url);
       
-      toast({
-        title: "QR Code generated",
-        description: "Scan with your phone to auto-fill decode"
-      });
+      // If requiresLocalStorage, store data in localStorage with streamId
+      if (result.requiresLocalStorage && result.streamId) {
+        const storageKey = `stream_${result.streamId}`;
+        localStorage.setItem(storageKey, data);
+        console.log(`Stored large data in localStorage with key: ${storageKey}`);
+        
+        toast({
+          title: "QR Code generated (Large file mode)",
+          description: "Data stored locally. Scan QR on this device or use the same browser."
+        });
+      } else {
+        toast({
+          title: "QR Code generated",
+          description: "Scan with your phone to auto-fill decode"
+        });
+      }
       
     } catch (error) {
       toast({
