@@ -90,7 +90,7 @@ export default function StreamPage() {
         
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.error || 'Stream not found. Data may have been embedded in URL - please use the original QR scan link.');
+          throw new Error(errorData.error || 'Stream data not found. Please regenerate the QR code to enable cross-device access.');
         }
         
         const result = await response.json();
@@ -103,7 +103,8 @@ export default function StreamPage() {
         
       } catch (err) {
         console.error('Error loading stream:', err);
-        setError(err instanceof Error ? err.message : 'Stream not found or expired. Please generate a new QR code.');
+        const errorMessage = err instanceof Error ? err.message : 'Stream data not found or expired.';
+        setError(`${errorMessage}\n\nℹ️ For large files, please regenerate the QR code with the latest version to enable cross-device scanning.`);
       } finally {
         setIsLoading(false);
       }
