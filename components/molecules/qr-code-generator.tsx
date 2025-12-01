@@ -44,7 +44,7 @@ export function QRCodeGenerator({ data, disabled = false }: QRCodeGeneratorProps
       
       const result = await response.json();
       
-      // Check if file is too large for QR
+      // Check if file is too large for QR (fallback mode)
       if (!response.ok || result.error === 'FILE_TOO_LARGE_FOR_QR') {
         setQrCode('');
         setQrUrl('');
@@ -61,10 +61,19 @@ export function QRCodeGenerator({ data, disabled = false }: QRCodeGeneratorProps
       setQrCode(result.qrCode);
       setQrUrl(result.url);
       
-      toast({
-        title: "✅ QR Code generated",
-        description: "Scan with any device to transfer data"
-      });
+      // Show appropriate message based on storage mode
+      if (result.mode === 'blob-storage') {
+        toast({
+          title: "✅ QR Code generated (Cloud Storage)",
+          description: `File uploaded to cloud. Scan QR from any device. Expires in 1 hour.`,
+          duration: 6000
+        });
+      } else {
+        toast({
+          title: "✅ QR Code generated",
+          description: "Scan with any device to transfer data"
+        });
+      }
       
     } catch (error) {
       toast({
