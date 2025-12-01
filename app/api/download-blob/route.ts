@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { del } from '@vercel/blob';
 
 export async function GET(request: NextRequest) {
   try {
@@ -28,6 +29,15 @@ export async function GET(request: NextRequest) {
     // Extract filename from URL or use default
     const urlPath = new URL(url).pathname;
     const fileName = urlPath.split('/').pop() || 'download';
+
+    // Delete blob after download (cleanup)
+    // Run async without blocking response
+    del(url).then(() => {
+      console.log(`Blob deleted after download: ${url}`);
+    }).catch((err) => {
+      console.error('Failed to delete blob:', err);
+      // Don't fail the download if deletion fails
+    });
 
     // Return the file for download
     return new NextResponse(blobData, {
