@@ -26,9 +26,6 @@ interface EncodeProps {
   isEncoding: boolean;
   uploadProgress?: number;
   currentFileName?: string;
-  encodePassword: string;
-  onEncodePasswordChange: (password: string) => void;
-  isEncrypting: boolean;
 }
 
 interface DecodeProps {
@@ -39,9 +36,6 @@ interface DecodeProps {
   onDownloadSingle: (file: FileData) => void;
   onDownloadAll: () => void;
   isDecoding: boolean;
-  decodePassword: string;
-  onDecodePasswordChange: (password: string) => void;
-  isStreamLocked?: boolean;
 }
 
 interface CommonProps {
@@ -64,8 +58,6 @@ export function MainContent({
   isEncoding,
   uploadProgress,
   currentFileName,
-  encodePassword,
-  onEncodePasswordChange,
   base64Input,
   onBase64InputChange,
   decodedData,
@@ -73,9 +65,6 @@ export function MainContent({
   onDownloadSingle,
   onDownloadAll,
   isDecoding,
-  decodePassword,
-  onDecodePasswordChange,
-  isStreamLocked,
   onReset
 }: MainContentProps) {
   return (
@@ -111,9 +100,9 @@ export function MainContent({
               isEncoding={isEncoding}
               uploadProgress={uploadProgress}
               currentFileName={currentFileName}
-              password={encodePassword}
-              onPasswordChange={onEncodePasswordChange}
-            />          <EncodedOutputSection
+            />
+          
+          <EncodedOutputSection
             encodedData={encodedBase64}
             onCopy={onCopyEncoded}
           />
@@ -127,9 +116,6 @@ export function MainContent({
             onInputChange={onBase64InputChange}
             onDecode={onDecode}
             isDecoding={isDecoding}
-            password={decodePassword}
-            onPasswordChange={onDecodePasswordChange}
-            isStreamLocked={isStreamLocked}
           />
           
           <DecodedOutputSection

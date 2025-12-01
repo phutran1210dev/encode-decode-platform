@@ -6,7 +6,6 @@ import { QrCode, Download, Copy, Smartphone } from 'lucide-react';
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 import { copyToClipboard } from '@/lib/file-utils';
-import { hiddenFetch } from '@/lib/hidden-api';
 
 interface QRCodeGeneratorProps {
   data: string;
@@ -32,11 +31,10 @@ export function QRCodeGenerator({ data, disabled = false }: QRCodeGeneratorProps
     try {
       setIsGenerating(true);
       
-      const response = await hiddenFetch('/api/qr', {
+      const response = await fetch('/api/qr', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'X-Hidden-Request': 'true'
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           data,

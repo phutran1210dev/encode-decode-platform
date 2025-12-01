@@ -4,7 +4,6 @@ import { useParams, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import EncodeDecode from '@/components/encode-decode-legacy';
-import { hiddenFetch } from '@/lib/hidden-api';
 
 interface DecodedData {
   data: string;
@@ -31,9 +30,7 @@ export default function DecodePage() {
         // Handle chunked data
         setIsLoading(true);
         try {
-          const response = await hiddenFetch(`/api/qr-data/${dataId}`, {
-            headers: { 'X-Hidden-Request': 'true' }
-          });
+          const response = await fetch(`/api/qr-data/${dataId}`);
           if (response.ok) {
             const result: DecodedData = await response.json();
             setDecodedData(decodeURIComponent(result.data));

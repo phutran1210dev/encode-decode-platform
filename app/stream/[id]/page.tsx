@@ -4,7 +4,6 @@ import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import EncodeDecode from '@/components/encode-decode-legacy';
-import { hiddenFetch } from '@/lib/hidden-api';
 
 interface StreamMetadata {
   originalSize: number;
@@ -45,9 +44,11 @@ export default function StreamPage() {
         // First, get complete data using POST endpoint
         console.log(`Loading stream: ${streamId}`);
         
-        const response = await hiddenFetch(`/api/stream/${streamId}`, {
+        const response = await fetch(`/api/stream/${streamId}`, {
           method: 'POST',
-          headers: { 'X-Hidden-Request': 'true' }
+          headers: {
+            'Content-Type': 'application/json'
+          }
         });
         
         if (!response.ok) {

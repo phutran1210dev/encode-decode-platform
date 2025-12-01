@@ -1,4 +1,3 @@
-// Core data types with strict validation
 export interface FileData {
   readonly name: string;
   readonly content: string;

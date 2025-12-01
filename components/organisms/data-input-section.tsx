@@ -6,8 +6,7 @@ import {
   InputModeSelector, 
   FileUploadButtons, 
   FileList, 
-  ManualTextInput,
-  PasswordInput 
+  ManualTextInput
 } from '@/components/molecules';
 import { Upload, Shield, RotateCcw } from 'lucide-react';
 import { FileData } from '@/types';
@@ -24,8 +23,6 @@ interface DataInputSectionProps {
   isEncoding: boolean;
   uploadProgress?: number;
   currentFileName?: string;
-  password: string;
-  onPasswordChange: (password: string) => void;
 }
 
 export function DataInputSection({
@@ -37,9 +34,7 @@ export function DataInputSection({
   onFileSelect,
   onEncode,
   onReset,
-  isEncoding,
-  password,
-  onPasswordChange
+  isEncoding
 }: DataInputSectionProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
@@ -49,22 +44,13 @@ export function DataInputSection({
 
   return (
     <MatrixCard 
-      title="DATA INJECTION"
-      description="[LOAD TARGET DATA FOR ENCRYPTION]"
+      title="DATA INPUT"
+      description="[LOAD FILES OR TEXT TO ENCODE]"
       icon={Upload}
     >
       <InputModeSelector 
         value={inputMode}
         onChange={onInputModeChange}
-      />
-
-      <PasswordInput
-        value={password}
-        onChange={onPasswordChange}
-        label="ENCRYPTION PASSWORD"
-        placeholder="[ENTER PASSWORD FOR ENCRYPTION...]"
-        required
-        disabled={isEncoding}
       />
 
       {inputMode === 'manual' && (
@@ -112,7 +98,7 @@ export function DataInputSection({
                 icon={Shield}
                 className="flex-1"
               >
-                ENCRYPT DATA
+                ENCODE DATA
               </MatrixButton>
               <MatrixButton 
                 variant="outline" 
