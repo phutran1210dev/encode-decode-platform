@@ -19,55 +19,24 @@ export default function DecodePage() {
   const [error, setError] = useState<string>('');
 
   useEffect(() => {
-    const loadData = async () => {
-      // Check for data in URL params (new chunked approach)
-      const dataId = params?.data as string;
-      
-      // Check for data in search params (traditional approach)
+    const loadData = () => {
+      // Only use query params - no more cache/chunked data
       const queryData = searchParams?.get('data');
       
-      if (dataId && dataId !== 'undefined') {
-        // Handle chunked data
-        setIsLoading(true);
-        try {
-          const response = await fetch(`/api/qr-data/${dataId}`);
-          if (response.ok) {
-            const result: DecodedData = await response.json();
-            setDecodedData(decodeURIComponent(result.data));
-            
-            // Clean up cache after successful retrieval
-            // Give user time to see the data (5 seconds), then delete cache
-            setTimeout(async () => {
-              try {
-                await fetch(`/api/qr-data/${dataId}`, { method: 'DELETE' });
-                console.log('Cache cleaned up for:', dataId);
-              } catch (err) {
-                console.error('Failed to cleanup cache:', err);
-              }
-            }, 5000);
-          } else {
-            const errorData = await response.json();
-            setError(errorData.error || 'Failed to load data');
-          }
-        } catch (err) {
-          setError('Network error loading data');
-          console.error('Error loading chunked data:', err);
-        } finally {
-          setIsLoading(false);
-        }
-      } else if (queryData) {
-        // Handle traditional query parameter data
+      if (queryData) {
         try {
           setDecodedData(decodeURIComponent(queryData));
         } catch (err) {
           setError('Invalid data format');
           console.error('Error decoding query data:', err);
         }
+      } else {
+        setError('No data found in URL');
       }
     };
 
     loadData();
-  }, [params, searchParams]);
+  }, [searchParams]);
 
   if (isLoading) {
     return (

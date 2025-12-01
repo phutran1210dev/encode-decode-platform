@@ -88,63 +88,20 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Handle large data with simple chunking
-    let processedData = sanitizedData;
-    let isChunked = false;
-    let expirationTime = 10 * 60 * 1000; // Default 10 minutes
-    
     console.log(`Original data size: ${sanitizedData.length} characters`);
     
-    // Use chunking for data over 2KB (to handle 5MB+ files efficiently)
-    if (processedData.length > 2000) {
-      // For very large data, we'll store it temporarily and use a short ID
-      // Use a more stable ID generation (hash-based instead of timestamp)
-      const crypto = require('crypto');
-      const hash = crypto.createHash('md5').update(data).digest('hex').substring(0, 16);
-      const dataId = hash + '-' + Date.now().toString(36);
-      
-      console.log('🔵 [QR API] Creating cache entry for large data');
-      console.log('🔵 [QR API] Generated dataId:', dataId);
-      console.log('🔵 [QR API] Data length:', data.length);
-      
-      // Store in a simple in-memory cache (you could use Redis/Database in production)
-      globalThis.qrDataCache = globalThis.qrDataCache || new Map<string, CacheEntry>();
-      // Longer expiration for large files (30 minutes)
-      expirationTime = sanitizedData.length > 1000000 ? (30 * 60 * 1000) : (10 * 60 * 1000);
-      
-      globalThis.qrDataCache.set(dataId, {
-        data: data,
-        timestamp: Date.now(),
-        expires: Date.now() + expirationTime
-      });
-      
-      console.log('🔵 [QR API] Cache entry saved');
-      console.log('🔵 [QR API] Verification - can retrieve:', globalThis.qrDataCache.has(dataId));
-      console.log('🔵 [QR API] Cache size:', globalThis.qrDataCache.size);
-      console.log('🔵 [QR API] All cache keys:', Array.from(globalThis.qrDataCache.keys()));
-      
-      // Clean up expired entries
-      for (const [key, value] of globalThis.qrDataCache.entries()) {
-        if (value.expires < Date.now()) {
-          globalThis.qrDataCache.delete(key);
-        }
-      }
-      
-      processedData = dataId;
-      isChunked = true;
-      console.log(`🔵 [QR API] Large data (${sanitizedData.length} chars) stored with ID: ${dataId}`);
-      console.log(`🔵 [QR API] Cache now has ${globalThis.qrDataCache.size} entries`);
-    }
-    
-    // Final validation - QR codes can handle up to ~7000 chars with high error correction
-    if (!isChunked && processedData.length > 6000) {
+    // Validate QR code size limit (QR codes can handle ~7000 chars max)
+    if (sanitizedData.length > 7000) {
       return NextResponse.json(
-        { error: `Data too large for QR code generation (${processedData.length} characters). Maximum supported: 6000 characters. Very large files will be chunked automatically.` }, 
+        { 
+          error: `Data too large for QR code (${sanitizedData.length} characters). Maximum: 7000 characters.`,
+          suggestion: 'Please reduce file size or use direct sharing instead of QR code.'
+        }, 
         { status: 400 }
       );
     }
     
-    console.log(`Final processed data size: ${processedData.length} characters (chunked: ${isChunked})`);
+    console.log(`Data size OK for QR: ${sanitizedData.length} characters`);
     
     // Auto-detect environment and create appropriate base URL
     const host = request.headers.get('host') || '';
@@ -162,19 +119,13 @@ export async function POST(request: NextRequest) {
     
     console.log('Base URL:', baseUrl);
     
-    // Create URL with processed data
+    // Create URL with data directly in query parameter (no cache needed)
     let targetUrl: string;
     try {
-      if (isChunked) {
-        // Use special route for chunked data
-        const url = new URL(`/decode/${processedData}`, baseUrl);
-        targetUrl = url.toString();
-      } else {
-        // Normal route with query parameter
-        const url = new URL('/decode', baseUrl);
-        url.searchParams.set('data', processedData);
-        targetUrl = url.toString();
-      }
+      const url = new URL('/decode', baseUrl);
+      url.searchParams.set('data', sanitizedData);
+      targetUrl = url.toString();
+      console.log('Target URL created with data in query param');
     } catch (urlError) {
       console.error('URL creation error:', urlError);
       return NextResponse.json(
@@ -218,12 +169,10 @@ export async function POST(request: NextRequest) {
       environment: host.includes('localhost') || host.includes('127.0.0.1') ? 'development' : 'production',
       processing: {
         originalSize: sanitizedData.length,
-        processedSize: processedData.length,
-        isChunked
+        method: 'direct-url' // No cache, data in URL
       },
       metadata: {
-        timestamp: Date.now(),
-        expiresIn: isChunked ? expirationTime : null
+        timestamp: Date.now()
       }
     }, {
       headers: {
