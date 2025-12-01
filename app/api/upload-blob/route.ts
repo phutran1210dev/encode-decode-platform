@@ -20,9 +20,11 @@ export async function POST(request: NextRequest) {
       addRandomSuffix: true
     });
 
+    console.log(`File uploaded to blob: ${blob.url}`);
+
     return NextResponse.json({
       url: blob.url,
-      size: blob.size,
+      size: file.size,
       uploadedAt: new Date().toISOString()
     });
 
