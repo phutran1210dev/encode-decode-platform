@@ -7,12 +7,10 @@
   "regions": ["hnd1"],
   "functions": {
     "app/**/*.ts": {
-      "maxDuration": 30,
-      "memory": 1024
+      "maxDuration": 30
     },
     "app/api/qr/route.ts": {
-      "maxDuration": 60,
-      "memory": 2048
+      "maxDuration": 60
     }
   },
   "headers": [
