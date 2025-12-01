@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
           light: '#000000' // Black background
         },
         // Use L (Low) error correction for maximum data capacity
-        errorCorrectionLevel: processedData.length > 3000 ? 'L' : 'M'
+        errorCorrectionLevel: sanitizedData.length > 3000 ? 'L' : 'M'
       };
       
       qrCodeDataURL = await QRCode.toDataURL(targetUrl, qrOptions);
