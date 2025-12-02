@@ -30,6 +30,7 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
   
   // Encoder state
   const [selectedFiles, setSelectedFiles] = useState<FileData[]>([]);
+  const [rawFiles, setRawFiles] = useState<FileList | null>(null); // Store original File objects
   const [encodedBase64, setEncodedBase64] = useState<string>('');
   const [isEncoding, setIsEncoding] = useState(false);
   const [inputMode, setInputMode] = useState<'manual' | 'file'>('file');
@@ -69,6 +70,9 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
       setIsEncoding(true);
       setUploadProgress(0);
       setCurrentFileName(undefined);
+      
+      // Store raw File objects for direct upload (especially for ZIP files)
+      setRawFiles(files);
       
       const processedFiles = await fileProcessingService.processFiles(files, (progress, fileName) => {
         setUploadProgress(progress);
@@ -144,47 +148,31 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
          filesToEncode[0].type === 'application/x-zip-compressed');
       
       if (isZipFile) {
-        console.log('🔥 ZIP DETECTED - CLIENT-SIDE UPLOAD v2');
+        console.log('🔥 ZIP DETECTED - DIRECT UPLOAD (NO BASE64 CONVERSION)');
         
         try {
-          const zipFile = filesToEncode[0];
-          console.log(`ZIP file: ${zipFile.name}, size: ${zipFile.size} bytes`);
+          // Use raw File object instead of base64 conversion (much faster!)
+          const rawFile = rawFiles?.[0];
           
-          // Convert base64 content back to blob for ZIP files
-          // Remove data URL prefix if exists (e.g., "data:application/zip;base64,")
-          let base64Data = zipFile.content;
-          if (base64Data.includes(',')) {
-            base64Data = base64Data.split(',')[1];
+          if (!rawFile) {
+            throw new Error('Original file not found. Please re-select the file.');
           }
           
-          // Convert base64 to binary
-          const binaryString = atob(base64Data);
-          const bytes = new Uint8Array(binaryString.length);
-          for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-          }
-          const blob = new Blob([bytes], { type: 'application/zip' });
-          console.log(`Blob created: ${blob.size} bytes, type: ${blob.type}`);
-          
-          // Debug: Check env vars
-          console.log('ENV CHECK:', {
-            url: process.env.NEXT_PUBLIC_SUPABASE_URL,
-            hasKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-          });
+          console.log(`ZIP file: ${rawFile.name}, size: ${rawFile.size} bytes`);
           
           // Upload directly from client to Supabase Storage (no API route, no size limit!)
           const { supabase } = await import('@/lib/supabase');
-          const fileName = `zips/${Date.now()}-${zipFile.name}`;
+          const fileName = `zips/${Date.now()}-${rawFile.name}`;
           console.log(`Uploading to Supabase Storage: ${fileName}`);
           
           toast({
             title: "⏳ Uploading ZIP...",
-            description: `Uploading ${(zipFile.size / 1024 / 1024).toFixed(2)}MB to cloud storage`,
+            description: `Uploading ${(rawFile.size / 1024 / 1024).toFixed(2)}MB directly to cloud storage`,
           });
           
           const { data, error } = await supabase.storage
             .from('encoded-files')
-            .upload(fileName, blob, {
+            .upload(fileName, rawFile, {
               contentType: 'application/zip',
               upsert: false
             });
@@ -202,11 +190,11 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
           console.log(`ZIP uploaded to Supabase: ${publicUrl}`);
           
           // Store with FILE: prefix to indicate direct file download
-          setEncodedBase64(`FILE:${publicUrl}:${zipFile.name}`);
+          setEncodedBase64(`FILE:${publicUrl}:${rawFile.name}`);
           
           toast({
             title: "✅ ZIP file uploaded",
-            description: `${zipFile.name} ready for QR download. No encoding needed.`,
+            description: `${rawFile.name} ready for QR download. No encoding needed.`,
             duration: 6000
           });
           return;

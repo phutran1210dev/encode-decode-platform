@@ -14,11 +14,23 @@ export function EncodedOutput({ value, onCopy }: EncodedOutputProps) {
   // Check if this is cloud storage URL
   const isSupabaseMode = value.startsWith('SUPABASE:');
   const isBlobMode = value.startsWith('BLOB:');
-  const isCloudMode = isSupabaseMode || isBlobMode;
+  const isFileMode = value.startsWith('FILE:');
+  const isDBMode = value.startsWith('DB:');
+  const isCloudMode = isSupabaseMode || isBlobMode || isFileMode || isDBMode;
   
-  const displayValue = isCloudMode
-    ? `🌥️ CLOUD STORAGE MODE\n\nYour file has been uploaded to cloud storage.\n\nSize: Large file (optimized for QR transfer)\nStorage: ${isSupabaseMode ? 'Supabase Storage (Free)' : 'Vercel Blob Storage'}\nStatus: Ready for QR generation\n\n✅ Click "GENERATE QR" below to create a scannable QR code.\n\nStorage URL:\n${value.replace('SUPABASE:', '').replace('BLOB:', '')}` 
-    : value;
+  let displayValue = value;
+  
+  if (isFileMode) {
+    const parts = value.split(':');
+    const fileName = parts[2] || 'file';
+    const fileUrl = parts[1] || '';
+    displayValue = `📦 ZIP FILE UPLOADED\n\nYour ZIP file has been uploaded directly to cloud storage.\n\nFile: ${fileName}\nMode: Direct Download (No encoding needed)\nStorage: Supabase Storage\nStatus: Ready for QR generation\n\n✅ Generate QR code below to download this file from any device.\n\nDirect Download URL:\n${fileUrl}`;
+  } else if (isDBMode) {
+    const id = value.replace('DB:', '');
+    displayValue = `💾 SAVED TO DATABASE\n\nYour encoded data has been saved to cloud database.\n\nData ID: ${id}\nExpires: 24 hours\nStatus: Ready for QR generation\n\n✅ Generate QR code below to decode from any device.\n\nNote: Data will be automatically deleted after 24 hours.`;
+  } else if (isCloudMode) {
+    displayValue = `🌥️ CLOUD STORAGE MODE\n\nYour file has been uploaded to cloud storage.\n\nSize: Large file (optimized for QR transfer)\nStorage: ${isSupabaseMode ? 'Supabase Storage (Free)' : 'Vercel Blob Storage'}\nStatus: Ready for QR generation\n\n✅ Click "GENERATE QR" below to create a scannable QR code.\n\nStorage URL:\n${value.replace('SUPABASE:', '').replace('BLOB:', '')}`;
+  }
   
   return (
     <div className="space-y-2">
