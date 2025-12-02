@@ -11,6 +11,11 @@ interface EncodedOutputProps {
 }
 
 export function EncodedOutput({ value, onCopy }: EncodedOutputProps) {
+  // Debug log to check value
+  if (value) {
+    console.log('📝 EncodedOutput received value:', value.substring(0, 100));
+  }
+  
   // Check if this is cloud storage URL
   const isSupabaseMode = value.startsWith('SUPABASE:');
   const isBlobMode = value.startsWith('BLOB:');
@@ -21,9 +26,21 @@ export function EncodedOutput({ value, onCopy }: EncodedOutputProps) {
   let displayValue = value;
   
   if (isFileMode) {
-    const parts = value.split(':');
-    const fileName = parts[2] || 'file';
-    const fileUrl = parts[1] || '';
+    // Parse format: FILE:URL:fileName
+    // URL might contain colons (https://...) so we need special handling
+    const withoutPrefix = value.substring(5); // Remove 'FILE:'
+    const lastColonIndex = withoutPrefix.lastIndexOf(':');
+    
+    let fileUrl = '';
+    let fileName = 'file';
+    
+    if (lastColonIndex !== -1) {
+      fileUrl = withoutPrefix.substring(0, lastColonIndex);
+      fileName = withoutPrefix.substring(lastColonIndex + 1);
+    } else {
+      fileUrl = withoutPrefix;
+    }
+    
     displayValue = `📦 ZIP FILE UPLOADED\n\nYour ZIP file has been uploaded directly to cloud storage.\n\nFile: ${fileName}\nMode: Direct Download (No encoding needed)\nStorage: Supabase Storage\nStatus: Ready for QR generation\n\n✅ Generate QR code below to download this file from any device.\n\nDirect Download URL:\n${fileUrl}`;
   } else if (isDBMode) {
     const id = value.replace('DB:', '');

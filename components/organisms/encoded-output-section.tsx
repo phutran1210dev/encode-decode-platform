@@ -13,6 +13,9 @@ interface EncodedOutputSectionProps {
 export function EncodedOutputSection({ encodedData, onCopy }: EncodedOutputSectionProps) {
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
   
+  // Debug log
+  console.log('🟢 EncodedOutputSection render - encodedData:', encodedData ? encodedData.substring(0, 50) + '...' : 'empty');
+  
   return (
     <MatrixCard 
       title="ENCODED OUTPUT"

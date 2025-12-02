@@ -150,64 +150,67 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
       if (isZipFile) {
         console.log('🔥 ZIP DETECTED - DIRECT UPLOAD (NO BASE64 CONVERSION)');
         
-        try {
-          // Use raw File object instead of base64 conversion (much faster!)
-          const rawFile = rawFiles?.[0];
-          
-          if (!rawFile) {
-            throw new Error('Original file not found. Please re-select the file.');
-          }
-          
-          console.log(`ZIP file: ${rawFile.name}, size: ${rawFile.size} bytes`);
-          
-          // Upload directly from client to Supabase Storage (no API route, no size limit!)
-          const { supabase } = await import('@/lib/supabase');
-          const fileName = `zips/${Date.now()}-${rawFile.name}`;
-          console.log(`Uploading to Supabase Storage: ${fileName}`);
-          
-          toast({
-            title: "⏳ Uploading ZIP...",
-            description: `Uploading ${(rawFile.size / 1024 / 1024).toFixed(2)}MB directly to cloud storage`,
-          });
-          
-          const { data, error } = await supabase.storage
-            .from('encoded-files')
-            .upload(fileName, rawFile, {
-              contentType: 'application/zip',
-              upsert: false
-            });
-          
-          if (error) {
-            console.error('Supabase storage error:', error);
-            throw new Error(`Upload failed: ${error.message}`);
-          }
-          
-          // Get public URL
-          const { data: { publicUrl } } = supabase.storage
-            .from('encoded-files')
-            .getPublicUrl(data.path);
-          
-          console.log(`ZIP uploaded to Supabase: ${publicUrl}`);
-          
-          // Store with FILE: prefix to indicate direct file download
-          setEncodedBase64(`FILE:${publicUrl}:${rawFile.name}`);
-          
-          toast({
-            title: "✅ ZIP file uploaded",
-            description: `${rawFile.name} ready for QR download. No encoding needed.`,
-            duration: 6000
-          });
-          return;
-        } catch (uploadError) {
-          console.error('ZIP upload error:', uploadError);
-          toast({
-            title: "Upload failed",
-            description: uploadError instanceof Error ? uploadError.message : "Failed to upload ZIP file",
-            variant: "destructive",
-            duration: 8000
-          });
-          return;
+        // Use raw File object instead of base64 conversion (much faster!)
+        const rawFile = rawFiles?.[0];
+        
+        if (!rawFile) {
+          throw new Error('Original file not found. Please re-select the file.');
         }
+        
+        console.log(`ZIP file: ${rawFile.name}, size: ${rawFile.size} bytes`);
+        
+        // Upload directly from client to Supabase Storage (no API route, no size limit!)
+        const { supabase } = await import('@/lib/supabase');
+        const fileName = `zips/${Date.now()}-${rawFile.name}`;
+        console.log(`Uploading to Supabase Storage: ${fileName}`);
+        
+        toast({
+          title: "⏳ Uploading ZIP...",
+          description: `Uploading ${(rawFile.size / 1024 / 1024).toFixed(2)}MB directly to cloud storage`,
+        });
+        
+        const { data, error } = await supabase.storage
+          .from('encoded-files')
+          .upload(fileName, rawFile, {
+            contentType: 'application/zip',
+            upsert: false
+          });
+        
+        if (error) {
+          console.error('Supabase storage error:', error);
+          throw new Error(`Upload failed: ${error.message}`);
+        }
+        
+        // Get public URL
+        const { data: { publicUrl } } = supabase.storage
+          .from('encoded-files')
+          .getPublicUrl(data.path);
+        
+        console.log(`ZIP uploaded to Supabase: ${publicUrl}`);
+        
+        // Store with FILE: prefix to indicate direct file download
+        const fileUrl = `FILE:${publicUrl}:${rawFile.name}`;
+        
+        console.log(`🔵 Setting encoded value:`, fileUrl);
+        console.log(`🔵 Format check - starts with FILE:`, fileUrl.startsWith('FILE:'));
+        console.log(`🔵 URL:`, publicUrl);
+        console.log(`🔵 Filename:`, rawFile.name);
+        
+        setEncodedBase64(fileUrl);
+        
+        // Force a small delay to ensure state update
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        console.log(`✅ State should be updated now`);
+        
+        toast({
+          title: "✅ ZIP file uploaded",
+          description: `${rawFile.name} ready for QR download. No encoding needed.`,
+          duration: 6000
+        });
+        
+        // Don't return here - let finally block handle cleanup
+        return;
       }
       
       // Encode files to base64 (for non-ZIP files)
