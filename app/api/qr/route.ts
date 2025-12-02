@@ -12,8 +12,6 @@ try {
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('QR API called');
-    
     // Check if QRCode library is available
     if (!QRCode) {
       console.error('QRCode library not available');
@@ -49,14 +47,10 @@ export async function POST(request: NextRequest) {
       
       // Handle FILE: prefix (ZIP direct download)
       if (trimmedData.startsWith('FILE:')) {
-        console.log('Detected FILE: prefix - direct download mode');
         const parts = trimmedData.substring(5); // Remove 'FILE:'
         const lastColonIndex = parts.lastIndexOf(':');
         const fileUrl = lastColonIndex !== -1 ? parts.substring(0, lastColonIndex) : parts;
         const fileName = lastColonIndex !== -1 ? parts.substring(lastColonIndex + 1) : 'file';
-        
-        console.log(`Generating QR for direct file download: ${fileName}`);
-        console.log(`File URL: ${fileUrl}`);
         
         let qrCodeDataURL: string;
         try {
@@ -90,14 +84,10 @@ export async function POST(request: NextRequest) {
       
       // Handle DB: prefix (database stored data)
       if (trimmedData.startsWith('DB:')) {
-        console.log('Detected DB: prefix - database mode');
         const dbId = trimmedData.substring(3); // Remove 'DB:'
         // Encode the full data value to ensure special characters work correctly
         const encodedData = encodeURIComponent(`DB:${dbId}`);
         const decodeUrl = `${baseUrl}/decode?data=${encodedData}`;
-        
-        console.log(`Generating QR for database ID: ${dbId}`);
-        console.log(`Decode URL: ${decodeUrl}`);
         
         let qrCodeDataURL: string;
         try {
@@ -132,7 +122,6 @@ export async function POST(request: NextRequest) {
     
     // Handle direct file download (ZIP files, etc.) - legacy mode parameter
     if (mode === 'direct-download' && fileUrl) {
-      console.log(`Generating QR for direct file download: ${fileName}`);
       
       // Generate QR code with direct file URL
       let qrCodeDataURL: string;
@@ -167,7 +156,6 @@ export async function POST(request: NextRequest) {
     
     // Check if blob URL is provided (client-side upload already done)
     if (blobUrl) {
-      console.log(`Using pre-uploaded blob: ${blobUrl}`);
       
       // Create stream URL with blob parameter
       const streamId = `blob-${Date.now()}`;
@@ -228,15 +216,12 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    console.log(`Data size: ${sanitizedData.length} characters`);
-    
     // Create URL with data directly in query parameter
     let targetUrl: string;
     try {
       const url = new URL('/decode', baseUrl);
       url.searchParams.set('data', sanitizedData);
       targetUrl = url.toString();
-      console.log('Target URL created with data in query param');
     } catch (urlError) {
       console.error('URL creation error:', urlError);
       return NextResponse.json(
@@ -266,8 +251,6 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
-    
-    console.log('QR code generated successfully');
     
     return NextResponse.json({
       qrCode: qrCodeDataURL,

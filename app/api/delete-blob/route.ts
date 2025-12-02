@@ -14,10 +14,8 @@ export async function POST(request: NextRequest) {
 
     // Delete blob from storage
     await del(url);
-    
-    console.log(`Blob deleted: ${url}`);
-    
-    return NextResponse.json({ 
+
+    return NextResponse.json({
       success: true,
       message: 'Blob deleted successfully' 
     });

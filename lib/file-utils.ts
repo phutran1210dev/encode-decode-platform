@@ -233,11 +233,9 @@ export const processFiles = async (
       if (isBinary) {
         // Read binary files (including ZIP) as data URL to preserve integrity
         content = await readFileAsBinary(file);
-        console.log(`Reading binary file: ${file.name} (${file.type})`);
       } else {
         // Read text files normally
         content = await readFileAsText(file);
-        console.log(`Reading text file: ${file.name}`);
       }
 
       processedFiles.push({

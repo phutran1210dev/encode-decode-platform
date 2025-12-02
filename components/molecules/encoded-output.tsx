@@ -11,11 +11,6 @@ interface EncodedOutputProps {
 }
 
 export function EncodedOutput({ value, onCopy }: EncodedOutputProps) {
-  // Debug log to check value
-  if (value) {
-    console.log('📝 EncodedOutput received value:', value.substring(0, 100));
-  }
-  
   // Check if this is cloud storage URL
   const isSupabaseMode = value.startsWith('SUPABASE:');
   const isBlobMode = value.startsWith('BLOB:');

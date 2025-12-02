@@ -35,10 +35,7 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
   const [encodedBase64, setEncodedBase64] = useState<string>('');
   const [isEncoding, setIsEncoding] = useState(false);
   
-  // Debug: Track encodedBase64 changes
-  useEffect(() => {
-    console.log('🟡 encodedBase64 STATE CHANGED:', encodedBase64 ? encodedBase64.substring(0, 80) + '...' : 'EMPTY');
-  }, [encodedBase64]);
+
   const [inputMode, setInputMode] = useState<'manual' | 'file'>('file');
   const [manualText, setManualText] = useState<string>('');
   
@@ -60,8 +57,6 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
   // Auto-fill effect for QR code navigation
   useEffect(() => {
     if (autoFillData && autoFillData !== base64Input) {
-      console.log('🔵 Auto-fill data detected:', autoFillData);
-      
       // Switch to decode tab
       setActiveTab('decode');
       
@@ -71,7 +66,6 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
       // Auto-decode if valid data
       const timer = setTimeout(() => {
         if (autoFillData.trim()) {
-          console.log('🔵 Triggering auto-decode...');
           handleDecode();
         }
       }, 500);
@@ -168,8 +162,6 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
          filesToEncode[0].type === 'application/x-zip-compressed');
       
       if (isZipFile) {
-        console.log('🔥 ZIP DETECTED - DIRECT UPLOAD (NO BASE64 CONVERSION)');
-        
         // Use raw File object instead of base64 conversion (much faster!)
         const rawFile = rawFiles?.[0];
         
@@ -177,12 +169,9 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
           throw new Error('Original file not found. Please re-select the file.');
         }
         
-        console.log(`ZIP file: ${rawFile.name}, size: ${rawFile.size} bytes`);
-        
         // Upload directly from client to Supabase Storage (no API route, no size limit!)
         const { supabase } = await import('@/lib/supabase');
         const fileName = `zips/${Date.now()}-${rawFile.name}`;
-        console.log(`Uploading to Supabase Storage: ${fileName}`);
         
         toast({
           title: "⏳ Uploading ZIP...",
@@ -206,22 +195,14 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
           .from('encoded-files')
           .getPublicUrl(data.path);
         
-        console.log(`✅ ZIP uploaded to Supabase: ${publicUrl}`);
-        
         // Store with FILE: prefix to indicate direct file download
         const fileUrl = `FILE:${publicUrl}:${rawFile.name}`;
-        
-        console.log(`🔵 CRITICAL: Setting encoded value:`, fileUrl);
-        console.log(`🔵 Value length:`, fileUrl.length);
-        console.log(`🔵 Format check - starts with FILE:`, fileUrl.startsWith('FILE:'));
         
         // CRITICAL FIX: Use flushSync to force immediate state update and re-render
         // This ensures the state is updated synchronously before continuing
         flushSync(() => {
           setEncodedBase64(fileUrl);
         });
-        
-        console.log(`✅ STATE FORCEFULLY UPDATED with flushSync - component should re-render NOW`);
         
         // Show success toast
         toast({
@@ -238,7 +219,6 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
       const encoded = fileProcessingService.encodeFiles(filesToEncode);
       
       // Save ALL encoded data to Supabase database (prevents UI lag)
-      console.log(`Saving encoded data to Supabase database (${(encoded.length / 1024 / 1024).toFixed(2)}MB)...`);
       
       try {
         const saveResponse = await fetch('/api/save-encoded', {
@@ -258,8 +238,6 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
         }
         
         const saveResult = await saveResponse.json();
-        
-        console.log(`Encoded data saved with ID: ${saveResult.id}`);
         
         // Store only the ID (lightweight, no UI lag!)
         setEncodedBase64(`DB:${saveResult.id}`);
@@ -311,7 +289,6 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
       // Check if it's a database ID reference
       if (dataTodecode.startsWith('DB:')) {
         const id = dataTodecode.replace('DB:', '');
-        console.log(`Fetching encoded data from database: ${id}`);
         
         try {
           const fetchResponse = await fetch(`/api/get-encoded/${id}`);
@@ -372,7 +349,6 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
 
   // SOLID Principles: Single Responsibility - Download operations
   const handleDownloadSingle = (file: FileData) => {
-    console.warn('🔴 handleDownloadSingle - CLEARING encodedBase64');
     downloadService.downloadSingle(file);
     // Clear all data after download - no need to keep anything
     setEncodedBase64('');
@@ -387,7 +363,6 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
   const handleDownloadAll = () => {
     if (!decodedData?.files.length) return;
     
-    console.warn('🔴 handleDownloadAll - CLEARING encodedBase64');
     const fileCount = decodedData.files.length;
     downloadService.downloadAll(decodedData.files);
     // Clear all data after download - complete reset
@@ -425,7 +400,6 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
   };
 
   const handleReset = () => {
-    console.warn('🔴 handleReset - CLEARING ALL STATE');
     setSelectedFiles([]);
     setEncodedBase64('');
     setBase64Input('');

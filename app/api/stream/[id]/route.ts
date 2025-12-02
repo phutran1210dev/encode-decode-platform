@@ -61,8 +61,6 @@ export async function GET(
       );
     }
     
-    console.log(`Serving chunk ${chunkIndex}/${streamEntry.totalChunks - 1} for stream ${id}`);
-    
     return NextResponse.json({
       chunk: streamEntry.chunks[chunkIndex],
       chunkIndex,

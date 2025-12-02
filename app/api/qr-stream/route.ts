@@ -25,8 +25,6 @@ declare global {
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('QR Streaming API called');
-    
     // Parse request body safely
     let requestData;
     try {
