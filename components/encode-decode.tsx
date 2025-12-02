@@ -144,7 +144,7 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
          filesToEncode[0].type === 'application/x-zip-compressed');
       
       if (isZipFile) {
-        console.log('ZIP file detected, uploading directly to Supabase...');
+        console.log('ZIP file detected, uploading directly to Supabase from client...');
         
         try {
           const zipFile = filesToEncode[0];
@@ -164,26 +164,36 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
           }
           const blob = new Blob([bytes], { type: 'application/zip' });
           
-          const formData = new FormData();
-          formData.append('file', blob);
-          formData.append('fileName', zipFile.name);
+          // Upload directly from client to Supabase Storage (no API route, no size limit!)
+          const { supabase } = await import('@/lib/supabase');
+          const fileName = `zips/${Date.now()}-${zipFile.name}`;
           
-          const uploadResponse = await fetch('/api/upload-supabase', {
-            method: 'POST',
-            body: formData
+          toast({
+            title: "⏳ Uploading ZIP...",
+            description: `Uploading ${(zipFile.size / 1024 / 1024).toFixed(2)}MB to cloud storage`,
           });
           
-          if (!uploadResponse.ok) {
-            const errorData = await uploadResponse.json();
-            throw new Error(errorData.error || 'Failed to upload ZIP to Supabase');
+          const { data, error } = await supabase.storage
+            .from('encoded-files')
+            .upload(fileName, blob, {
+              contentType: 'application/zip',
+              upsert: false
+            });
+          
+          if (error) {
+            console.error('Supabase storage error:', error);
+            throw new Error(`Upload failed: ${error.message}`);
           }
           
-          const uploadResult = await uploadResponse.json();
+          // Get public URL
+          const { data: { publicUrl } } = supabase.storage
+            .from('encoded-files')
+            .getPublicUrl(data.path);
           
-          console.log(`ZIP uploaded to Supabase: ${uploadResult.url}`);
+          console.log(`ZIP uploaded to Supabase: ${publicUrl}`);
           
           // Store with FILE: prefix to indicate direct file download
-          setEncodedBase64(`FILE:${uploadResult.url}:${zipFile.name}`);
+          setEncodedBase64(`FILE:${publicUrl}:${zipFile.name}`);
           
           toast({
             title: "✅ ZIP file uploaded",
