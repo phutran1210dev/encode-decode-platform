@@ -92,7 +92,9 @@ export async function POST(request: NextRequest) {
       if (trimmedData.startsWith('DB:')) {
         console.log('Detected DB: prefix - database mode');
         const dbId = trimmedData.substring(3); // Remove 'DB:'
-        const decodeUrl = `${baseUrl}/decode?data=DB:${dbId}`;
+        // Encode the full data value to ensure special characters work correctly
+        const encodedData = encodeURIComponent(`DB:${dbId}`);
+        const decodeUrl = `${baseUrl}/decode?data=${encodedData}`;
         
         console.log(`Generating QR for database ID: ${dbId}`);
         console.log(`Decode URL: ${decodeUrl}`);
