@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { flushSync } from 'react-dom';
 import { useToast } from '@/hooks/use-toast';
 import MatrixRain from '@/components/matrix-effects';
 import { HeaderSection, MainContent } from '@/components/templates';
@@ -196,26 +197,26 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
         // Store with FILE: prefix to indicate direct file download
         const fileUrl = `FILE:${publicUrl}:${rawFile.name}`;
         
-        console.log(`🔵 BEFORE setEncodedBase64:`, fileUrl);
+        console.log(`🔵 CRITICAL: Setting encoded value:`, fileUrl);
+        console.log(`🔵 Value length:`, fileUrl.length);
+        console.log(`🔵 Format check - starts with FILE:`, fileUrl.startsWith('FILE:'));
         
-        // Update state
-        setEncodedBase64(fileUrl);
+        // CRITICAL FIX: Use flushSync to force immediate state update and re-render
+        // This ensures the state is updated synchronously before continuing
+        flushSync(() => {
+          setEncodedBase64(fileUrl);
+        });
         
-        console.log(`🔵 AFTER setEncodedBase64 called`);
-        console.log(`🔵 Expected format: FILE:URL:filename`);
-        console.log(`🔵 URL length:`, publicUrl.length);
-        console.log(`🔵 Filename:`, rawFile.name);
+        console.log(`✅ STATE FORCEFULLY UPDATED with flushSync - component should re-render NOW`);
         
         // Show success toast
         toast({
-          title: "✅ ZIP file uploaded successfully",
-          description: `${rawFile.name} (${(rawFile.size / 1024 / 1024).toFixed(2)}MB) is ready for QR generation`,
-          duration: 8000
+          title: "✅ ZIP uploaded successfully",
+          description: `${rawFile.name} is ready for QR generation`,
+          duration: 5000
         });
         
-        console.log(`✅ Upload complete - returning from ZIP handler`);
-        
-        // Return here - let finally block set isEncoding = false
+        // Return to exit ZIP handling - finally block will run
         return;
       }
       
