@@ -34,6 +34,7 @@ export function QRCodeGenerator({ data, disabled = false }: QRCodeGeneratorProps
       // Check if data is already uploaded to cloud storage
       const isSupabase = data.startsWith('SUPABASE:');
       const isBlob = data.startsWith('BLOB:');
+      const isFile = data.startsWith('FILE:');
       
       if (isSupabase || isBlob) {
         const storageUrl = data.replace('SUPABASE:', '').replace('BLOB:', '');
@@ -64,6 +65,45 @@ export function QRCodeGenerator({ data, disabled = false }: QRCodeGeneratorProps
         toast({
           title: "✅ QR Code generated (Cloud Storage)",
           description: `Scan QR from any device to download file.`,
+          duration: 6000
+        });
+        
+        return;
+      }
+      
+      // Handle direct file downloads (e.g., ZIP files)
+      if (isFile) {
+        const parts = data.split(':');
+        const fileUrl = parts[1];
+        const fileName = parts[2] || 'file';
+        
+        console.log(`Generating QR for direct file download: ${fileName}`);
+        
+        // Generate QR code with direct download URL
+        const response = await fetch('/api/qr', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            fileUrl: fileUrl,
+            fileName: fileName,
+            mode: 'direct-download'
+          })
+        });
+        
+        const result = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(result.error || 'Failed to generate QR code');
+        }
+        
+        setQrCode(result.qrCode);
+        setQrUrl(result.url);
+        
+        toast({
+          title: "✅ QR Code generated (Direct Download)",
+          description: `Scan QR to download ${fileName} directly`,
           duration: 6000
         });
         

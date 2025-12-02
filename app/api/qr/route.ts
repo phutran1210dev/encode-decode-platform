@@ -35,13 +35,48 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    const { data, blobUrl } = requestData;
+    const { data, blobUrl, fileUrl, fileName, mode } = requestData;
     
     // Auto-detect environment and create base URL
     const host = request.headers.get('host') || 'localhost:3000';
     const baseUrl = host.includes('localhost') || host.includes('127.0.0.1') 
       ? `http://127.0.0.1:3000` 
       : `https://${host}`;
+    
+    // Handle direct file download (ZIP files, etc.)
+    if (mode === 'direct-download' && fileUrl) {
+      console.log(`Generating QR for direct file download: ${fileName}`);
+      
+      // Generate QR code with direct file URL
+      let qrCodeDataURL: string;
+      try {
+        qrCodeDataURL = await QRCode.toDataURL(fileUrl, {
+          width: 400,
+          margin: 1,
+          color: {
+            dark: '#00ff00',
+            light: '#000000'
+          },
+          errorCorrectionLevel: 'M'
+        });
+      } catch (qrError) {
+        console.error('QR generation error:', qrError);
+        return NextResponse.json(
+          { error: 'Failed to generate QR code' }, 
+          { status: 500 }
+        );
+      }
+      
+      return NextResponse.json({
+        qrCode: qrCodeDataURL,
+        url: fileUrl,
+        fileName: fileName,
+        mode: 'direct-download',
+        metadata: {
+          timestamp: Date.now()
+        }
+      });
+    }
     
     // Check if blob URL is provided (client-side upload already done)
     if (blobUrl) {

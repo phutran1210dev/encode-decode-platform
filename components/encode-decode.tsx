@@ -137,7 +137,64 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
         }];
       }
       
-      // Encode files to base64
+      // Check if it's a ZIP file - upload directly without encoding
+      const isZipFile = filesToEncode.length === 1 && 
+        (filesToEncode[0].name.toLowerCase().endsWith('.zip') || 
+         filesToEncode[0].type === 'application/zip' ||
+         filesToEncode[0].type === 'application/x-zip-compressed');
+      
+      if (isZipFile) {
+        console.log('ZIP file detected, uploading directly to Supabase...');
+        
+        try {
+          const zipFile = filesToEncode[0];
+          // Convert base64 content back to blob for ZIP files
+          const binaryString = atob(zipFile.content);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          const blob = new Blob([bytes], { type: 'application/zip' });
+          
+          const formData = new FormData();
+          formData.append('file', blob);
+          formData.append('fileName', zipFile.name);
+          
+          const uploadResponse = await fetch('/api/upload-supabase', {
+            method: 'POST',
+            body: formData
+          });
+          
+          if (!uploadResponse.ok) {
+            throw new Error('Failed to upload ZIP to Supabase');
+          }
+          
+          const uploadResult = await uploadResponse.json();
+          
+          console.log(`ZIP uploaded to Supabase: ${uploadResult.url}`);
+          
+          // Store with FILE: prefix to indicate direct file download
+          setEncodedBase64(`FILE:${uploadResult.url}:${zipFile.name}`);
+          
+          toast({
+            title: "✅ ZIP file uploaded",
+            description: `${zipFile.name} ready for QR download. No encoding needed.`,
+            duration: 6000
+          });
+          return;
+        } catch (uploadError) {
+          console.error('ZIP upload error:', uploadError);
+          toast({
+            title: "Upload failed",
+            description: "Failed to upload ZIP file. Please try again.",
+            variant: "destructive",
+            duration: 8000
+          });
+          return;
+        }
+      }
+      
+      // Encode files to base64 (for non-ZIP files)
       const encoded = fileProcessingService.encodeFiles(filesToEncode);
       
       // Check if encoded data is large (> 1MB)
