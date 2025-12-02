@@ -197,60 +197,49 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
       // Encode files to base64 (for non-ZIP files)
       const encoded = fileProcessingService.encodeFiles(filesToEncode);
       
-      // Check if encoded data is large (> 1MB)
-      const SIZE_THRESHOLD = 1 * 1024 * 1024; // 1MB
+      // Save ALL encoded data to Supabase database (prevents UI lag)
+      console.log(`Saving encoded data to Supabase database (${(encoded.length / 1024 / 1024).toFixed(2)}MB)...`);
       
-      if (encoded.length > SIZE_THRESHOLD) {
-        console.log(`Large file detected (${(encoded.length / 1024 / 1024).toFixed(2)}MB), uploading to Supabase storage...`);
+      try {
+        const saveResponse = await fetch('/api/save-encoded', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            data: encoded,
+            fileCount: filesToEncode.length,
+            totalSize: encoded.length
+          })
+        });
         
-        try {
-          // Upload to Supabase Storage
-          const blob = new Blob([encoded], { type: 'application/octet-stream' });
-          const formData = new FormData();
-          formData.append('file', blob);
-          formData.append('fileName', `encoded-${Date.now()}.bin`);
-          
-          const uploadResponse = await fetch('/api/upload-supabase', {
-            method: 'POST',
-            body: formData
-          });
-          
-          if (!uploadResponse.ok) {
-            throw new Error('Failed to upload to Supabase');
-          }
-          
-          const uploadResult = await uploadResponse.json();
-          
-          console.log(`Uploaded to Supabase: ${uploadResult.url}`);
-          
-          // Store Supabase URL instead of actual data
-          setEncodedBase64(`SUPABASE:${uploadResult.url}`);
-          
-          toast({
-            title: "✅ Encoding successful (Supabase Storage)",
-            description: `${filesToEncode.length} file(s) uploaded to cloud. Generate QR to share.`,
-            duration: 6000
-          });
-        } catch (uploadError) {
-          console.error('Supabase upload error:', uploadError);
-          
-          // Fallback: Store encoded data locally (may cause UI lag for very large files)
-          setEncodedBase64(encoded);
-          
-          toast({
-            title: "⚠️ Encoding successful (Local)",
-            description: `File too large for cloud upload. QR generation may not work.`,
-            variant: "destructive",
-            duration: 8000
-          });
+        if (!saveResponse.ok) {
+          throw new Error('Failed to save to database');
         }
-      } else {
-        // For small files, store normally
+        
+        const saveResult = await saveResponse.json();
+        
+        console.log(`Encoded data saved with ID: ${saveResult.id}`);
+        
+        // Store only the ID (lightweight, no UI lag!)
+        setEncodedBase64(`DB:${saveResult.id}`);
+        
+        toast({
+          title: "✅ Encoding successful",
+          description: `${filesToEncode.length} file(s) encoded and saved. Ready to share via QR.`,
+          duration: 5000
+        });
+      } catch (saveError) {
+        console.error('Database save error:', saveError);
+        
+        // Fallback: Store locally if database fails
         setEncodedBase64(encoded);
         
         toast({
-          title: "Encoding successful",
-          description: `${filesToEncode.length} file(s) encoded to base64`,
+          title: "⚠️ Encoding successful (Local)",
+          description: `Saved locally. Database unavailable.`,
+          variant: "destructive",
+          duration: 6000
         });
       }
     } catch (error) {
@@ -277,7 +266,35 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
     try {
       setIsDecoding(true);
       
-      const decoded = fileProcessingService.decodeData(base64Input.trim());
+      let dataTodecode = base64Input.trim();
+      
+      // Check if it's a database ID reference
+      if (dataTodecode.startsWith('DB:')) {
+        const id = dataTodecode.replace('DB:', '');
+        console.log(`Fetching encoded data from database: ${id}`);
+        
+        try {
+          const fetchResponse = await fetch(`/api/get-encoded/${id}`);
+          
+          if (!fetchResponse.ok) {
+            throw new Error('Data not found or expired');
+          }
+          
+          const fetchResult = await fetchResponse.json();
+          dataTodecode = fetchResult.data;
+          
+          toast({
+            title: "📥 Data retrieved from cloud",
+            description: `${fetchResult.fileCount} file(s) loaded`,
+            duration: 3000
+          });
+        } catch (fetchError) {
+          console.error('Database fetch error:', fetchError);
+          throw new Error('Failed to retrieve data from cloud. It may have expired.');
+        }
+      }
+      
+      const decoded = fileProcessingService.decodeData(dataTodecode);
       setDecodedData(decoded);
       
       toast({

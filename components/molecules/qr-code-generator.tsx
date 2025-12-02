@@ -35,6 +35,43 @@ export function QRCodeGenerator({ data, disabled = false }: QRCodeGeneratorProps
       const isSupabase = data.startsWith('SUPABASE:');
       const isBlob = data.startsWith('BLOB:');
       const isFile = data.startsWith('FILE:');
+      const isDB = data.startsWith('DB:');
+      
+      // Handle database-stored encoded data (ID-based)
+      if (isDB) {
+        const id = data.replace('DB:', '');
+        console.log(`Generating QR for database-stored data: ${id}`);
+        
+        // Create decode URL with database ID
+        const decodeUrl = `${window.location.origin}/decode?data=${encodeURIComponent(data)}`;
+        
+        const response = await fetch('/api/qr', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            data: decodeUrl
+          })
+        });
+        
+        const result = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(result.error || 'Failed to generate QR code');
+        }
+        
+        setQrCode(result.qrCode);
+        setQrUrl(result.url);
+        
+        toast({
+          title: "✅ QR Code generated (Cloud Database)",
+          description: `Scan QR to auto-decode from cloud. Valid for 24 hours.`,
+          duration: 6000
+        });
+        
+        return;
+      }
       
       if (isSupabase || isBlob) {
         const storageUrl = data.replace('SUPABASE:', '').replace('BLOB:', '');
