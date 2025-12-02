@@ -51,20 +51,34 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
   const [decodedData, setDecodedData] = useState<EncodedData | null>(null);
   const [isDecoding, setIsDecoding] = useState(false);
   
+  // Tab state - auto switch to decode when autofill data exists
+  const [activeTab, setActiveTab] = useState<string>(autoFillData ? 'decode' : 'encode');
+  
   // Drag and drop state
   const [isDragOver, setIsDragOver] = useState(false);
   
   // Auto-fill effect for QR code navigation
   useEffect(() => {
     if (autoFillData && autoFillData !== base64Input) {
+      console.log('🔵 Auto-fill data detected:', autoFillData);
+      
+      // Switch to decode tab
+      setActiveTab('decode');
+      
+      // Fill the input
       setBase64Input(autoFillData);
+      
       // Auto-decode if valid data
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         if (autoFillData.trim()) {
+          console.log('🔵 Triggering auto-decode...');
           handleDecode();
         }
       }, 500);
+      
+      return () => clearTimeout(timer);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoFillData]);
   
 
@@ -447,6 +461,8 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
         <HeaderSection onReset={handleReset} />
         
         <MainContent
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
           inputMode={inputMode}
           onInputModeChange={setInputMode}
           manualText={manualText}

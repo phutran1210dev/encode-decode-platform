@@ -43,9 +43,14 @@ interface CommonProps {
 }
 
 // Interface Segregation: MainContentProps combines only what's needed
-interface MainContentProps extends EncodeProps, DecodeProps, CommonProps {}
+interface MainContentProps extends EncodeProps, DecodeProps, CommonProps {
+  activeTab?: string;
+  onTabChange?: (tab: string) => void;
+}
 
 export function MainContent({
+  activeTab,
+  onTabChange,
   inputMode,
   onInputModeChange,
   manualText,
@@ -68,7 +73,7 @@ export function MainContent({
   onReset
 }: MainContentProps) {
   return (
-    <Tabs defaultValue="encode" className="w-full">
+    <Tabs value={activeTab || "encode"} onValueChange={onTabChange} className="w-full">
       <TabsList className="grid w-full grid-cols-2 mb-6 bg-black/50 border border-green-500/30">
         <TabsTrigger 
           value="encode" 
