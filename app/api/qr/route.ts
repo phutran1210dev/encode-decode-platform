@@ -43,7 +43,92 @@ export async function POST(request: NextRequest) {
       ? `http://127.0.0.1:3000` 
       : `https://${host}`;
     
-    // Handle direct file download (ZIP files, etc.)
+    // Auto-detect data format and handle accordingly
+    if (data && typeof data === 'string') {
+      const trimmedData = data.trim();
+      
+      // Handle FILE: prefix (ZIP direct download)
+      if (trimmedData.startsWith('FILE:')) {
+        console.log('Detected FILE: prefix - direct download mode');
+        const parts = trimmedData.substring(5); // Remove 'FILE:'
+        const lastColonIndex = parts.lastIndexOf(':');
+        const fileUrl = lastColonIndex !== -1 ? parts.substring(0, lastColonIndex) : parts;
+        const fileName = lastColonIndex !== -1 ? parts.substring(lastColonIndex + 1) : 'file';
+        
+        console.log(`Generating QR for direct file download: ${fileName}`);
+        console.log(`File URL: ${fileUrl}`);
+        
+        let qrCodeDataURL: string;
+        try {
+          qrCodeDataURL = await QRCode.toDataURL(fileUrl, {
+            width: 400,
+            margin: 1,
+            color: {
+              dark: '#00ff00',
+              light: '#000000'
+            },
+            errorCorrectionLevel: 'M'
+          });
+        } catch (qrError) {
+          console.error('QR generation error:', qrError);
+          return NextResponse.json(
+            { error: 'Failed to generate QR code' }, 
+            { status: 500 }
+          );
+        }
+        
+        return NextResponse.json({
+          qrCode: qrCodeDataURL,
+          url: fileUrl,
+          fileName: fileName,
+          mode: 'direct-download',
+          metadata: {
+            timestamp: Date.now()
+          }
+        });
+      }
+      
+      // Handle DB: prefix (database stored data)
+      if (trimmedData.startsWith('DB:')) {
+        console.log('Detected DB: prefix - database mode');
+        const dbId = trimmedData.substring(3); // Remove 'DB:'
+        const decodeUrl = `${baseUrl}/decode?data=DB:${dbId}`;
+        
+        console.log(`Generating QR for database ID: ${dbId}`);
+        console.log(`Decode URL: ${decodeUrl}`);
+        
+        let qrCodeDataURL: string;
+        try {
+          qrCodeDataURL = await QRCode.toDataURL(decodeUrl, {
+            width: 400,
+            margin: 1,
+            color: {
+              dark: '#00ff00',
+              light: '#000000'
+            },
+            errorCorrectionLevel: 'M'
+          });
+        } catch (qrError) {
+          console.error('QR generation error:', qrError);
+          return NextResponse.json(
+            { error: 'Failed to generate QR code' }, 
+            { status: 500 }
+          );
+        }
+        
+        return NextResponse.json({
+          qrCode: qrCodeDataURL,
+          url: decodeUrl,
+          mode: 'database',
+          metadata: {
+            timestamp: Date.now(),
+            dbId: dbId
+          }
+        });
+      }
+    }
+    
+    // Handle direct file download (ZIP files, etc.) - legacy mode parameter
     if (mode === 'direct-download' && fileUrl) {
       console.log(`Generating QR for direct file download: ${fileName}`);
       
