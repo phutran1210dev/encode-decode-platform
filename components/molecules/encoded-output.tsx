@@ -58,7 +58,7 @@ export function EncodedOutput({ value, onCopy }: EncodedOutputProps) {
         readOnly
         className="min-h-[300px] font-mono text-xs bg-black/50 border-green-500/30 text-green-300 placeholder:text-green-600/50"
       />
-      {value && !isCloudMode && (
+      {value && !isFileMode && (
         <MatrixButton 
           onClick={onCopy}
           icon={Copy}
