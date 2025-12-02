@@ -33,6 +33,11 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
   const [rawFiles, setRawFiles] = useState<FileList | null>(null); // Store original File objects
   const [encodedBase64, setEncodedBase64] = useState<string>('');
   const [isEncoding, setIsEncoding] = useState(false);
+  
+  // Debug: Track encodedBase64 changes
+  useEffect(() => {
+    console.log('🟡 encodedBase64 STATE CHANGED:', encodedBase64 ? encodedBase64.substring(0, 80) + '...' : 'EMPTY');
+  }, [encodedBase64]);
   const [inputMode, setInputMode] = useState<'manual' | 'file'>('file');
   const [manualText, setManualText] = useState<string>('');
   
@@ -186,30 +191,31 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
           .from('encoded-files')
           .getPublicUrl(data.path);
         
-        console.log(`ZIP uploaded to Supabase: ${publicUrl}`);
+        console.log(`✅ ZIP uploaded to Supabase: ${publicUrl}`);
         
         // Store with FILE: prefix to indicate direct file download
         const fileUrl = `FILE:${publicUrl}:${rawFile.name}`;
         
-        console.log(`🔵 Setting encoded value:`, fileUrl);
-        console.log(`🔵 Format check - starts with FILE:`, fileUrl.startsWith('FILE:'));
-        console.log(`🔵 URL:`, publicUrl);
-        console.log(`🔵 Filename:`, rawFile.name);
+        console.log(`🔵 BEFORE setEncodedBase64:`, fileUrl);
         
+        // Update state
         setEncodedBase64(fileUrl);
         
-        // Force a small delay to ensure state update
-        await new Promise(resolve => setTimeout(resolve, 100));
+        console.log(`🔵 AFTER setEncodedBase64 called`);
+        console.log(`🔵 Expected format: FILE:URL:filename`);
+        console.log(`🔵 URL length:`, publicUrl.length);
+        console.log(`🔵 Filename:`, rawFile.name);
         
-        console.log(`✅ State should be updated now`);
-        
+        // Show success toast
         toast({
-          title: "✅ ZIP file uploaded",
-          description: `${rawFile.name} ready for QR download. No encoding needed.`,
-          duration: 6000
+          title: "✅ ZIP file uploaded successfully",
+          description: `${rawFile.name} (${(rawFile.size / 1024 / 1024).toFixed(2)}MB) is ready for QR generation`,
+          duration: 8000
         });
         
-        // Don't return here - let finally block handle cleanup
+        console.log(`✅ Upload complete - returning from ZIP handler`);
+        
+        // Return here - let finally block set isEncoding = false
         return;
       }
       
@@ -351,6 +357,7 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
 
   // SOLID Principles: Single Responsibility - Download operations
   const handleDownloadSingle = (file: FileData) => {
+    console.warn('🔴 handleDownloadSingle - CLEARING encodedBase64');
     downloadService.downloadSingle(file);
     // Clear all data after download - no need to keep anything
     setEncodedBase64('');
@@ -365,6 +372,7 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
   const handleDownloadAll = () => {
     if (!decodedData?.files.length) return;
     
+    console.warn('🔴 handleDownloadAll - CLEARING encodedBase64');
     const fileCount = decodedData.files.length;
     downloadService.downloadAll(decodedData.files);
     // Clear all data after download - complete reset
@@ -402,6 +410,7 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
   };
 
   const handleReset = () => {
+    console.warn('🔴 handleReset - CLEARING ALL STATE');
     setSelectedFiles([]);
     setEncodedBase64('');
     setBase64Input('');
