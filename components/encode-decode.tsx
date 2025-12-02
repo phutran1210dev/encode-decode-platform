@@ -144,10 +144,11 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
          filesToEncode[0].type === 'application/x-zip-compressed');
       
       if (isZipFile) {
-        console.log('ZIP file detected, uploading directly to Supabase from client...');
+        console.log('🔥 ZIP DETECTED - CLIENT-SIDE UPLOAD v2');
         
         try {
           const zipFile = filesToEncode[0];
+          console.log(`ZIP file: ${zipFile.name}, size: ${zipFile.size} bytes`);
           
           // Convert base64 content back to blob for ZIP files
           // Remove data URL prefix if exists (e.g., "data:application/zip;base64,")
@@ -163,10 +164,12 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
             bytes[i] = binaryString.charCodeAt(i);
           }
           const blob = new Blob([bytes], { type: 'application/zip' });
+          console.log(`Blob created: ${blob.size} bytes, type: ${blob.type}`);
           
           // Upload directly from client to Supabase Storage (no API route, no size limit!)
           const { supabase } = await import('@/lib/supabase');
           const fileName = `zips/${Date.now()}-${zipFile.name}`;
+          console.log(`Uploading to Supabase Storage: ${fileName}`);
           
           toast({
             title: "⏳ Uploading ZIP...",
