@@ -148,8 +148,16 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
         
         try {
           const zipFile = filesToEncode[0];
+          
           // Convert base64 content back to blob for ZIP files
-          const binaryString = atob(zipFile.content);
+          // Remove data URL prefix if exists (e.g., "data:application/zip;base64,")
+          let base64Data = zipFile.content;
+          if (base64Data.includes(',')) {
+            base64Data = base64Data.split(',')[1];
+          }
+          
+          // Convert base64 to binary
+          const binaryString = atob(base64Data);
           const bytes = new Uint8Array(binaryString.length);
           for (let i = 0; i < binaryString.length; i++) {
             bytes[i] = binaryString.charCodeAt(i);
@@ -166,7 +174,8 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
           });
           
           if (!uploadResponse.ok) {
-            throw new Error('Failed to upload ZIP to Supabase');
+            const errorData = await uploadResponse.json();
+            throw new Error(errorData.error || 'Failed to upload ZIP to Supabase');
           }
           
           const uploadResult = await uploadResponse.json();
@@ -186,7 +195,7 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
           console.error('ZIP upload error:', uploadError);
           toast({
             title: "Upload failed",
-            description: "Failed to upload ZIP file. Please try again.",
+            description: uploadError instanceof Error ? uploadError.message : "Failed to upload ZIP file",
             variant: "destructive",
             duration: 8000
           });
