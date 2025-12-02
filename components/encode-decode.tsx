@@ -166,6 +166,12 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
           const blob = new Blob([bytes], { type: 'application/zip' });
           console.log(`Blob created: ${blob.size} bytes, type: ${blob.type}`);
           
+          // Debug: Check env vars
+          console.log('ENV CHECK:', {
+            url: process.env.NEXT_PUBLIC_SUPABASE_URL,
+            hasKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+          });
+          
           // Upload directly from client to Supabase Storage (no API route, no size limit!)
           const { supabase } = await import('@/lib/supabase');
           const fileName = `zips/${Date.now()}-${zipFile.name}`;
