@@ -216,8 +216,6 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
         
         console.log(`📦 Starting ZIP upload: ${rawFile.name} (${(rawFile.size / 1024 / 1024).toFixed(2)}MB)`);
         
-        // Upload directly from client to Supabase Storage
-        const { supabase } = await import('@/lib/supabase');
         const fileName = `zips/${Date.now()}-${rawFile.name}`;
         
         // Show initial toast
@@ -230,40 +228,28 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
         try {
           console.log(`  📤 Uploading to: ${fileName}`);
           
-          const { data, error } = await supabase.storage
-            .from('encoded-files')
-            .upload(fileName, rawFile, {
-              contentType: 'application/zip',
-              upsert: false,
-              cacheControl: '3600', // Cache for 1 hour
-            });
+          // Use S3 multipart upload for better performance with large files
+          const formData = new FormData();
+          formData.append('file', rawFile);
+          formData.append('fileName', fileName);
           
-          if (error) {
-            console.error('❌ Supabase storage error:', error);
-            
-            // Provide helpful error messages
-            if (error.message.includes('bucket') || error.message.includes('not found')) {
-              throw new Error('Storage not configured. Please create "encoded-files" bucket in Supabase Dashboard → Storage');
-            }
-            
-            if (error.message.includes('size')) {
-              throw new Error(`File too large. Maximum size: ${(maxZipSize / 1024 / 1024).toFixed(0)}MB`);
-            }
-            
-            throw new Error(`Upload failed: ${error.message}`);
+          const uploadResponse = await fetch('/api/upload-s3', {
+            method: 'POST',
+            body: formData,
+          });
+          
+          if (!uploadResponse.ok) {
+            const error = await uploadResponse.json();
+            throw new Error(error.details || error.error || 'Upload failed');
           }
           
-          console.log(`  ✅ Upload successful: ${data.path}`);
+          const uploadResult = await uploadResponse.json();
           
-          // Get public URL
-          const { data: { publicUrl } } = supabase.storage
-            .from('encoded-files')
-            .getPublicUrl(data.path);
-          
-          console.log(`  🔗 Public URL: ${publicUrl}`);
+          console.log(`  ✅ Upload successful: ${uploadResult.path}`);
+          console.log(`  🔗 Public URL: ${uploadResult.url}`);
           
           // Store with FILE: prefix to indicate direct file download
-          const fileUrl = `FILE:${publicUrl}:${rawFile.name}`;
+          const fileUrl = `FILE:${uploadResult.url}:${rawFile.name}`;
           
           // Update state
           flushSync(() => {
@@ -276,11 +262,11 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
           // Show success toast
           toast({
             title: "✅ ZIP uploaded successfully",
-            description: `${rawFile.name} is ready for QR generation`,
+            description: `${rawFile.name} (${(rawFile.size / 1024 / 1024).toFixed(2)}MB) • Direct download link created`,
             duration: 5000
           });
           
-          console.log(`✅ ZIP upload complete`);
+          console.log(`✅ ZIP upload complete - File URL ready`);
           
           // Return to exit ZIP handling
           return;
