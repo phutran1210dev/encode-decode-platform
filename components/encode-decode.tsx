@@ -228,12 +228,12 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
         try {
           console.log(`  📤 Uploading to: ${fileName}`);
           
-          // Upload directly using Blob storage (more reliable than S3)
+          // Upload to Supabase Storage instead (more reliable)
           const formData = new FormData();
           formData.append('file', rawFile);
           formData.append('fileName', fileName);
           
-          const uploadResponse = await fetch('/api/upload-blob', {
+          const uploadResponse = await fetch('/api/upload-supabase', {
             method: 'POST',
             body: formData,
           });
