@@ -88,23 +88,58 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
       // Store raw File objects for direct upload (especially for ZIP files)
       setRawFiles(files);
       
-      const processedFiles = await fileProcessingService.processFiles(files, (progress, fileName) => {
-        setUploadProgress(progress);
-        setCurrentFileName(fileName);
-      });
+      // Check if it's a single ZIP file - skip processing to save memory
+      const isSingleZip = files.length === 1 && 
+        (files[0].name.toLowerCase().endsWith('.zip') || 
+         files[0].type === 'application/zip' ||
+         files[0].type === 'application/x-zip-compressed');
       
-      setSelectedFiles(processedFiles);
-      
-      // Hide progress bar after completion
-      setTimeout(() => {
-        setUploadProgress(undefined);
-        setCurrentFileName(undefined);
-      }, 1000);
-      
-      toast({
-        title: "Files loaded successfully",
-        description: `${processedFiles.length} files ready for encoding`,
-      });
+      if (isSingleZip) {
+        // For ZIP files, don't process - just store metadata
+        const zipFile = files[0];
+        console.log(`📦 ZIP detected: ${zipFile.name} (${(zipFile.size / 1024 / 1024).toFixed(2)}MB) - skipping content processing`);
+        
+        // Create minimal FileData for UI display only
+        setSelectedFiles([{
+          name: zipFile.name,
+          content: '', // Empty - will use raw file for upload
+          size: zipFile.size,
+          type: zipFile.type,
+          lastModified: zipFile.lastModified,
+          isBinary: true,
+        }]);
+        
+        setUploadProgress(100);
+        
+        setTimeout(() => {
+          setUploadProgress(undefined);
+          setCurrentFileName(undefined);
+        }, 500);
+        
+        toast({
+          title: "ZIP file ready",
+          description: `${zipFile.name} (${(zipFile.size / 1024 / 1024).toFixed(2)}MB) ready for upload`,
+        });
+      } else {
+        // Normal files - process as usual
+        const processedFiles = await fileProcessingService.processFiles(files, (progress, fileName) => {
+          setUploadProgress(progress);
+          setCurrentFileName(fileName);
+        });
+        
+        setSelectedFiles(processedFiles);
+        
+        // Hide progress bar after completion
+        setTimeout(() => {
+          setUploadProgress(undefined);
+          setCurrentFileName(undefined);
+        }, 1000);
+        
+        toast({
+          title: "Files loaded successfully",
+          description: `${processedFiles.length} files ready for encoding`,
+        });
+      }
     } catch (error) {
       setUploadProgress(undefined);
       setCurrentFileName(undefined);
@@ -169,50 +204,87 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
           throw new Error('Original file not found. Please re-select the file.');
         }
         
-        // Upload directly from client to Supabase Storage (no API route, no size limit!)
+        // Check file size limit (Supabase free tier: 50MB, but be conservative)
+        const maxZipSize = 45 * 1024 * 1024; // 45MB to be safe
+        if (rawFile.size > maxZipSize) {
+          throw new Error(`ZIP file too large (${(rawFile.size / 1024 / 1024).toFixed(2)}MB). Maximum: ${(maxZipSize / 1024 / 1024).toFixed(0)}MB`);
+        }
+        
+        console.log(`📦 Starting ZIP upload: ${rawFile.name} (${(rawFile.size / 1024 / 1024).toFixed(2)}MB)`);
+        
+        // Upload directly from client to Supabase Storage
         const { supabase } = await import('@/lib/supabase');
         const fileName = `zips/${Date.now()}-${rawFile.name}`;
         
-        toast({
+        // Show initial toast
+        const uploadToast = toast({
           title: "⏳ Uploading ZIP...",
-          description: `Uploading ${(rawFile.size / 1024 / 1024).toFixed(2)}MB directly to cloud storage`,
+          description: `Uploading ${(rawFile.size / 1024 / 1024).toFixed(2)}MB to cloud storage. Please wait...`,
+          duration: Infinity, // Keep showing until done
         });
         
-        const { data, error } = await supabase.storage
-          .from('encoded-files')
-          .upload(fileName, rawFile, {
-            contentType: 'application/zip',
-            upsert: false
+        try {
+          console.log(`  📤 Uploading to: ${fileName}`);
+          
+          const { data, error } = await supabase.storage
+            .from('encoded-files')
+            .upload(fileName, rawFile, {
+              contentType: 'application/zip',
+              upsert: false,
+              cacheControl: '3600', // Cache for 1 hour
+            });
+          
+          if (error) {
+            console.error('❌ Supabase storage error:', error);
+            
+            // Provide helpful error messages
+            if (error.message.includes('bucket') || error.message.includes('not found')) {
+              throw new Error('Storage not configured. Please create "encoded-files" bucket in Supabase Dashboard → Storage');
+            }
+            
+            if (error.message.includes('size')) {
+              throw new Error(`File too large. Maximum size: ${(maxZipSize / 1024 / 1024).toFixed(0)}MB`);
+            }
+            
+            throw new Error(`Upload failed: ${error.message}`);
+          }
+          
+          console.log(`  ✅ Upload successful: ${data.path}`);
+          
+          // Get public URL
+          const { data: { publicUrl } } = supabase.storage
+            .from('encoded-files')
+            .getPublicUrl(data.path);
+          
+          console.log(`  🔗 Public URL: ${publicUrl}`);
+          
+          // Store with FILE: prefix to indicate direct file download
+          const fileUrl = `FILE:${publicUrl}:${rawFile.name}`;
+          
+          // Update state
+          flushSync(() => {
+            setEncodedBase64(fileUrl);
           });
-        
-        if (error) {
-          console.error('Supabase storage error:', error);
-          throw new Error(`Upload failed: ${error.message}`);
+          
+          // Dismiss upload toast
+          uploadToast.dismiss();
+          
+          // Show success toast
+          toast({
+            title: "✅ ZIP uploaded successfully",
+            description: `${rawFile.name} is ready for QR generation`,
+            duration: 5000
+          });
+          
+          console.log(`✅ ZIP upload complete`);
+          
+          // Return to exit ZIP handling
+          return;
+        } catch (uploadError) {
+          // Dismiss upload toast on error
+          uploadToast.dismiss();
+          throw uploadError;
         }
-        
-        // Get public URL
-        const { data: { publicUrl } } = supabase.storage
-          .from('encoded-files')
-          .getPublicUrl(data.path);
-        
-        // Store with FILE: prefix to indicate direct file download
-        const fileUrl = `FILE:${publicUrl}:${rawFile.name}`;
-        
-        // CRITICAL FIX: Use flushSync to force immediate state update and re-render
-        // This ensures the state is updated synchronously before continuing
-        flushSync(() => {
-          setEncodedBase64(fileUrl);
-        });
-        
-        // Show success toast
-        toast({
-          title: "✅ ZIP uploaded successfully",
-          description: `${rawFile.name} is ready for QR generation`,
-          duration: 5000
-        });
-        
-        // Return to exit ZIP handling - finally block will run
-        return;
       }
       
       // Encode files to base64 (for non-ZIP files)
