@@ -209,6 +209,8 @@ export const processFiles = async (
   const processedFiles: FileData[] = [];
   const totalFiles = fileArray.length;
   
+  console.log(`📁 Processing ${totalFiles} files...`);
+  
   let totalSize = 0;
   let processedCount = 0;
   
@@ -230,6 +232,8 @@ export const processFiles = async (
       let content: string;
       const isBinary = isBinaryFile(file);
       
+      console.log(`  📄 Processing file ${processedCount + 1}/${totalFiles}: ${file.name} (${isBinary ? 'binary' : 'text'}, ${(file.size / 1024).toFixed(2)}KB)`);
+      
       if (isBinary) {
         // Read binary files (including ZIP) as data URL to preserve integrity
         content = await readFileAsBinary(file);
@@ -238,15 +242,19 @@ export const processFiles = async (
         content = await readFileAsText(file);
       }
 
-      processedFiles.push({
+      const fileData: FileData = {
         name: file.name,
         content,
         size: file.size,
         type: file.type || 'application/octet-stream',
         lastModified: file.lastModified,
         isBinary,
-      });
+      };
+      
+      processedFiles.push(fileData);
+      console.log(`  ✅ File ${processedCount + 1} processed successfully: ${file.name}`);
     } catch (error) {
+      console.error(`  ❌ Failed to process file "${file.name}":`, error);
       throw new FileProcessingError(`Failed to process file "${file.name}": ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
     
@@ -257,6 +265,8 @@ export const processFiles = async (
   // Complete
   onProgress?.(100);
   
+  console.log(`✅ All ${processedFiles.length} files processed successfully`);
+  
   return processedFiles;
 };
 
@@ -265,10 +275,13 @@ export const encodeToBase64 = (files: readonly FileData[]): string => {
     throw new ValidationError('Invalid files array provided');
   }
   
+  console.log(`🔐 Encoding ${files.length} files to base64...`);
+  
   // Validate all files have required properties
   const invalidFiles = files.filter(file => !isValidFileData(file));
   
   if (invalidFiles.length > 0) {
+    console.error('❌ Invalid files found:', invalidFiles);
     throw new ValidationError(`Invalid file data: ${invalidFiles.length} files missing required properties`);
   }
   
@@ -282,10 +295,15 @@ export const encodeToBase64 = (files: readonly FileData[]): string => {
     },
   };
   
+  console.log(`  📊 Metadata: ${encodedData.metadata.totalFiles} files, ${(encodedData.metadata.totalSize / 1024).toFixed(2)}KB total`);
+  
   try {
     const jsonString = JSON.stringify(encodedData);
-    return btoa(unescape(encodeURIComponent(jsonString)));
+    const encoded = btoa(unescape(encodeURIComponent(jsonString)));
+    console.log(`  ✅ Encoded successfully: ${(encoded.length / 1024).toFixed(2)}KB base64`);
+    return encoded;
   } catch (error) {
+    console.error('❌ Encoding failed:', error);
     throw new FileProcessingError(`Failed to encode data: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 };
@@ -301,11 +319,32 @@ export const decodeFromBase64 = (base64String: string): EncodedData => {
     
     // Type guard to ensure decoded data matches EncodedData interface
     if (!isValidEncodedData(data)) {
+      const dataObj = data as Record<string, unknown>;
+      console.error('Invalid decoded data structure:', {
+        receivedType: typeof data,
+        hasFiles: Array.isArray(dataObj?.files),
+        filesCount: Array.isArray(dataObj?.files) 
+          ? (dataObj.files as unknown[]).length 
+          : 0,
+        metadata: dataObj?.metadata,
+      });
+      
+      const dataObj2 = data as Record<string, unknown>;
       throw new ValidationError('Decoded data does not match expected format', {
         receivedType: typeof data,
-        hasFiles: Array.isArray((data as Record<string, unknown>)?.files)
+        hasFiles: Array.isArray(dataObj2?.files),
+        filesCount: Array.isArray(dataObj2?.files) 
+          ? (dataObj2.files as unknown[]).length 
+          : 0,
       });
     }
+    
+    // Log successful decode for debugging
+    console.log('Successfully decoded data:', {
+      filesCount: data.files.length,
+      totalSize: data.metadata.totalSize,
+      timestamp: data.timestamp,
+    });
     
     return data;
   } catch (error) {
@@ -314,6 +353,7 @@ export const decodeFromBase64 = (base64String: string): EncodedData => {
     }
     
     if (error instanceof Error) {
+      console.error('Decode error:', error);
       throw new FileProcessingError(`Failed to decode data: ${error.message}`);
     }
     
@@ -387,27 +427,62 @@ export const downloadAllFiles = async (files: readonly FileData[]) => {
   // Multiple files: create ZIP archive
   try {
     const zip = new JSZip();
+    const failedFiles: string[] = [];
+    let successCount = 0;
     
     for (const file of files) {
       try {
+        // Validate file data first
+        if (!file.name || typeof file.content !== 'string') {
+          failedFiles.push(`${file.name || 'unnamed'} (missing name or content)`);
+          console.error(`Invalid file data:`, { name: file.name, hasContent: !!file.content });
+          continue;
+        }
+        
         if (file.isBinary && file.content.startsWith('data:')) {
           // Handle binary files stored as data URLs
           const matches = file.content.match(/^data:([^;]+);base64,(.+)$/);
           if (matches) {
             const base64Data = matches[2];
+            // Validate base64 data
+            if (!base64Data || base64Data.length === 0) {
+              failedFiles.push(`${file.name} (empty base64 data)`);
+              console.error(`Empty base64 data for file: ${file.name}`);
+              continue;
+            }
+            
             // Add to ZIP with path to preserve directory structure
             const filePath = file.path || file.name;
             zip.file(filePath, base64Data, { base64: true });
+            successCount++;
+            console.log(`Successfully added binary file to ZIP: ${filePath}`);
+          } else {
+            failedFiles.push(`${file.name} (invalid data URL format)`);
+            console.error(`Invalid data URL format for file: ${file.name}, content preview: ${file.content.substring(0, 100)}`);
           }
         } else {
           // Handle text files
           const filePath = file.path || file.name;
           zip.file(filePath, file.content);
+          successCount++;
+          console.log(`Successfully added text file to ZIP: ${filePath}`);
         }
       } catch (fileError) {
-        // Skip files that fail to process
-        console.warn(`Failed to add file ${file.name} to ZIP:`, fileError);
+        // Track failed files
+        const errorMsg = fileError instanceof Error ? fileError.message : 'Unknown error';
+        failedFiles.push(`${file.name} (${errorMsg})`);
+        console.error(`Failed to add file ${file.name} to ZIP:`, {
+          error: fileError,
+          fileSize: file.size,
+          isBinary: file.isBinary,
+          contentLength: file.content?.length || 0,
+        });
       }
+    }
+    
+    // Validate that we have at least some files in the ZIP
+    if (successCount === 0) {
+      throw new FileProcessingError(`Failed to add any files to ZIP. All ${files.length} files failed to process. Failed files: ${failedFiles.join(', ')}`);
     }
     
     // Generate ZIP file
@@ -427,6 +502,12 @@ export const downloadAllFiles = async (files: readonly FileData[]) => {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    
+    // Throw warning if some files failed but at least some succeeded
+    if (failedFiles.length > 0) {
+      console.error(`Warning: ${failedFiles.length} of ${files.length} files failed:`, failedFiles);
+      throw new FileProcessingError(`Downloaded ${successCount} of ${files.length} files. Failed files: ${failedFiles.map(f => f.split(' (')[0]).join(', ')}`);
+    }
     
   } catch (error) {
     if (error instanceof Error) {

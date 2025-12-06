@@ -218,47 +218,83 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
       // Encode files to base64 (for non-ZIP files)
       const encoded = fileProcessingService.encodeFiles(filesToEncode);
       
-      // Save ALL encoded data to Supabase database (prevents UI lag)
+      // Check if data is too large for Supabase (>2MB)
+      const encodedSizeBytes = new Blob([encoded]).size;
+      const maxSupabaseSize = 2 * 1024 * 1024; // 2MB limit for safe Supabase storage
       
-      try {
-        const saveResponse = await fetch('/api/save-encoded', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            data: encoded,
-            fileCount: filesToEncode.length,
-            totalSize: encoded.length
-          })
-        });
+      if (encodedSizeBytes > maxSupabaseSize) {
+        // Use blob storage for large data
+        console.log(`Data size (${(encodedSizeBytes / 1024 / 1024).toFixed(2)}MB) exceeds Supabase limit, using blob storage`);
         
-        if (!saveResponse.ok) {
-          throw new Error('Failed to save to database');
+        try {
+          const blobResponse = await fetch('/api/upload-blob-client', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              data: encoded,
+              fileName: `encoded-${Date.now()}.bin`,
+            })
+          });
+          
+          if (!blobResponse.ok) {
+            throw new Error('Failed to upload to blob storage');
+          }
+          
+          const blobResult = await blobResponse.json();
+          
+          // Store blob URL instead
+          setEncodedBase64(`BLOB:${blobResult.url}`);
+          
+          toast({
+            title: "✅ Encoding successful",
+            description: `${filesToEncode.length} file(s) encoded (${(encodedSizeBytes / 1024 / 1024).toFixed(2)}MB). Ready to share via QR.`,
+            duration: 5000
+          });
+        } catch (blobError) {
+          throw new Error(`Failed to upload large data to blob storage: ${blobError instanceof Error ? blobError.message : 'Unknown error'}`);
         }
-        
-        const saveResult = await saveResponse.json();
-        
-        // Store only the ID (lightweight, no UI lag!)
-        setEncodedBase64(`DB:${saveResult.id}`);
-        
-        toast({
-          title: "✅ Encoding successful",
-          description: `${filesToEncode.length} file(s) encoded and saved. Ready to share via QR.`,
-          duration: 5000
-        });
-      } catch (saveError) {
-        console.error('Database save error:', saveError);
-        
-        // Fallback: Store locally if database fails
-        setEncodedBase64(encoded);
-        
-        toast({
-          title: "⚠️ Encoding successful (Local)",
-          description: `Saved locally. Database unavailable.`,
-          variant: "destructive",
-          duration: 6000
-        });
+      } else {
+        // Save to Supabase database for smaller data (prevents UI lag)
+        try {
+          const saveResponse = await fetch('/api/save-encoded', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              data: encoded,
+              fileCount: filesToEncode.length,
+              totalSize: encoded.length
+            })
+          });
+          
+          if (!saveResponse.ok) {
+            throw new Error('Failed to save to database');
+          }
+          
+          const saveResult = await saveResponse.json();
+          
+          // Store only the ID (lightweight, no UI lag!)
+          setEncodedBase64(`DB:${saveResult.id}`);
+          
+          toast({
+            title: "✅ Encoding successful",
+            description: `${filesToEncode.length} file(s) encoded and saved. Ready to share via QR.`,
+            duration: 5000
+          });
+        } catch (saveError) {
+          console.error('Database save error:', saveError);
+          
+          // Fallback: Store locally if database fails
+          setEncodedBase64(encoded);
+          
+          toast({
+            title: "⚠️ Encoding successful (Local)",
+            description: `Saved locally. Database unavailable.`,
+            variant: "destructive",
+            duration: 6000
+          });
+        }
       }
     } catch (error) {
       toast({
@@ -286,8 +322,40 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
       
       let dataTodecode = base64Input.trim();
       
+      // Check if it's a blob storage URL reference
+      if (dataTodecode.startsWith('BLOB:')) {
+        const blobUrl = dataTodecode.replace('BLOB:', '');
+        
+        try {
+          const blobResponse = await fetch(blobUrl);
+          
+          if (!blobResponse.ok) {
+            throw new Error('Blob data not found or expired');
+          }
+          
+          dataTodecode = await blobResponse.text();
+          
+          toast({
+            title: "📥 Data retrieved from blob storage",
+            description: `Large file loaded successfully`,
+            duration: 3000
+          });
+          
+          // Delete blob after loading (cleanup) - don't wait
+          setTimeout(() => {
+            fetch('/api/delete-blob', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url: blobUrl })
+            }).catch(err => console.error('Failed to delete blob:', err));
+          }, 1000);
+        } catch (blobError) {
+          console.error('Blob fetch error:', blobError);
+          throw new Error('Failed to retrieve data from blob storage. It may have expired.');
+        }
+      }
       // Check if it's a database ID reference
-      if (dataTodecode.startsWith('DB:')) {
+      else if (dataTodecode.startsWith('DB:')) {
         const id = dataTodecode.replace('DB:', '');
         
         try {

@@ -30,13 +30,21 @@ export async function GET(
       );
     }
 
+    // Log data integrity check
+    const dataLength = data.data?.length || 0;
+    const expectedSize = data.total_size || 0;
+    console.log(`Encoded data retrieved: ${id}`, {
+      fileCount: data.file_count,
+      totalSize: data.total_size,
+      dataLength: dataLength,
+      dataTruncated: dataLength < expectedSize,
+    });
+
     // Update access count
     await supabaseAdmin
       .from('encoded_files')
       .update({ access_count: (data.access_count || 0) + 1 })
       .eq('id', id);
-
-    console.log(`Encoded data retrieved: ${id}`);
 
     return NextResponse.json({
       data: data.data,

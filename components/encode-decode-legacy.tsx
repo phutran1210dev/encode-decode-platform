@@ -218,14 +218,22 @@ export default function EncodeDecode({ initialDecodeData }: EncodeDecodeProps = 
     });
   };
 
-  const handleDownloadAll = () => {
+  const handleDownloadAll = async () => {
     if (!decodedData?.files.length) return;
     
-    downloadAllFiles(decodedData.files);
-    toast({
-      title: "All files downloaded",
-      description: `${decodedData.files.length} files downloaded successfully`,
-    });
+    try {
+      await downloadAllFiles(decodedData.files);
+      toast({
+        title: "All files downloaded",
+        description: `${decodedData.files.length} files downloaded successfully`,
+      });
+    } catch (error) {
+      toast({
+        title: "Download warning",
+        description: error instanceof Error ? error.message : "Some files may not have been downloaded",
+        variant: "destructive",
+      });
+    }
   };
 
   // Auto-decode when initialDecodeData is provided

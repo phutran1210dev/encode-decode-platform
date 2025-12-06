@@ -48,7 +48,7 @@ export const isNonEmptyString = (value: unknown): value is NonEmptyString => {
 };
 
 export const isPositiveNumber = (value: unknown): value is PositiveNumber => {
-  return typeof value === 'number' && value > 0 && Number.isFinite(value);
+  return typeof value === 'number' && value >= 0 && Number.isFinite(value);
 };
 
 export const isSafeInteger = (value: unknown): value is SafeInteger => {
@@ -57,11 +57,14 @@ export const isSafeInteger = (value: unknown): value is SafeInteger => {
 
 // File validation
 export const isValidFileData = (data: unknown): data is FileData => {
-  if (!data || typeof data !== 'object') return false;
+  if (!data || typeof data !== 'object') {
+    console.error('Invalid file data: not an object', typeof data);
+    return false;
+  }
   
   const obj = data as Record<string, unknown>;
   
-  return (
+  const isValid = (
     isNonEmptyString(obj.name) &&
     typeof obj.content === 'string' &&
     isPositiveNumber(obj.size) &&
@@ -70,6 +73,20 @@ export const isValidFileData = (data: unknown): data is FileData => {
     (obj.isBinary === undefined || typeof obj.isBinary === 'boolean') &&
     (obj.path === undefined || typeof obj.path === 'string')
   );
+  
+  if (!isValid) {
+    console.error('Invalid file data:', {
+      name: { value: obj.name, valid: isNonEmptyString(obj.name) },
+      content: { type: typeof obj.content, valid: typeof obj.content === 'string' },
+      size: { value: obj.size, valid: isPositiveNumber(obj.size) },
+      type: { value: obj.type, valid: typeof obj.type === 'string' },
+      lastModified: { value: obj.lastModified, valid: isSafeInteger(obj.lastModified) },
+      isBinary: { value: obj.isBinary, valid: obj.isBinary === undefined || typeof obj.isBinary === 'boolean' },
+      path: { value: obj.path, valid: obj.path === undefined || typeof obj.path === 'string' },
+    });
+  }
+  
+  return isValid;
 };
 
 // Encoded data validation
