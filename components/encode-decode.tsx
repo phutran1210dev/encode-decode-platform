@@ -239,8 +239,16 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
           });
           
           if (!uploadResponse.ok) {
-            const error = await uploadResponse.json();
-            throw new Error(error.details || error.error || 'Upload failed');
+            let errorMessage = 'Upload failed';
+            try {
+              const error = await uploadResponse.json();
+              errorMessage = error.details || error.error || errorMessage;
+            } catch (e) {
+              // Response is not JSON (might be HTML error page)
+              const text = await uploadResponse.text();
+              errorMessage = `Server error: ${uploadResponse.status} - ${text.substring(0, 200)}`;
+            }
+            throw new Error(errorMessage);
           }
           
           const uploadResult = await uploadResponse.json();
