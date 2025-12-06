@@ -210,12 +210,20 @@ export default function EncodeDecode({ initialDecodeData }: EncodeDecodeProps = 
     }
   };
 
-  const handleDownloadSingle = (file: FileData) => {
-    downloadFile(file.content, file.name, file.isBinary);
-    toast({
-      title: "File downloaded",
-      description: `${file.name} downloaded successfully`,
-    });
+  const handleDownloadSingle = async (file: FileData) => {
+    try {
+      await downloadFile(file.content, file.name, file.isBinary);
+      toast({
+        title: "File downloaded",
+        description: `${file.name} downloaded successfully`,
+      });
+    } catch (error) {
+      toast({
+        title: "Download failed",
+        description: error instanceof Error ? error.message : "Failed to download file",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDownloadAll = async () => {

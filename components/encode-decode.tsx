@@ -416,16 +416,27 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
   };
 
   // SOLID Principles: Single Responsibility - Download operations
-  const handleDownloadSingle = (file: FileData) => {
-    downloadService.downloadSingle(file);
-    // Clear all data after download - no need to keep anything
-    setEncodedBase64('');
-    setBase64Input('');
-    setDecodedData(null);
-    toast({
-      title: "File downloaded",
-      description: `${file.name} downloaded successfully`,
-    });
+  const handleDownloadSingle = async (file: FileData) => {
+    try {
+      await downloadService.downloadSingle(file);
+      // Clear all data after download - no need to keep anything
+      setEncodedBase64('');
+      setBase64Input('');
+      setDecodedData(null);
+      toast({
+        title: "File downloaded",
+        description: `${file.name} downloaded successfully`,
+      });
+    } catch (error) {
+      // User may have cancelled, don't show error
+      if (error instanceof Error && error.name !== 'AbortError') {
+        toast({
+          title: "Download failed",
+          description: error.message,
+          variant: "destructive",
+        });
+      }
+    }
   };
 
   const handleDownloadAll = async () => {

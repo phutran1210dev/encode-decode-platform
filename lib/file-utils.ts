@@ -361,7 +361,7 @@ export const decodeFromBase64 = (base64String: string): EncodedData => {
   }
 };
 
-export const downloadFile = (content: string, filename: string, isBinary: boolean = false, path?: string) => {
+export const downloadFile = async (content: string, filename: string, isBinary: boolean = false, path?: string, useFilePicker: boolean = true) => {
   if (!content || typeof content !== 'string') {
     throw new ValidationError('Invalid content: must be a non-empty string');
   }
@@ -395,6 +395,32 @@ export const downloadFile = (content: string, filename: string, isBinary: boolea
       blob = new Blob([content], { type: isBinary ? 'application/octet-stream' : 'text/plain' });
     }
     
+    // Try to use File System Access API if supported and enabled
+    if (useFilePicker && 'showSaveFilePicker' in window) {
+      try {
+        const handle = await (window as any).showSaveFilePicker({
+          suggestedName: path || filename,
+          types: [{
+            description: 'Files',
+            accept: {
+              '*/*': ['.txt', '.json', '.jpg', '.png', '.pdf', '.zip', '.*']
+            }
+          }]
+        });
+        
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        return;
+      } catch (err) {
+        // User cancelled or API not available, fall back to standard download
+        if ((err as Error).name !== 'AbortError') {
+          console.warn('File picker failed, using fallback:', err);
+        }
+      }
+    }
+    
+    // Fallback: Standard download
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -492,11 +518,45 @@ export const downloadAllFiles = async (files: readonly FileData[]) => {
       compressionOptions: { level: 6 }
     });
     
-    // Download ZIP
+    const zipFilename = `decoded-files-${Date.now()}.zip`;
+    
+    // Try to use File System Access API if supported
+    if ('showSaveFilePicker' in window) {
+      try {
+        const handle = await (window as any).showSaveFilePicker({
+          suggestedName: zipFilename,
+          types: [{
+            description: 'ZIP Archive',
+            accept: {
+              'application/zip': ['.zip']
+            }
+          }]
+        });
+        
+        const writable = await handle.createWritable();
+        await writable.write(zipBlob);
+        await writable.close();
+        
+        // Throw warning if some files failed but at least some succeeded
+        if (failedFiles.length > 0) {
+          console.error(`Warning: ${failedFiles.length} of ${files.length} files failed:`, failedFiles);
+          throw new FileProcessingError(`Downloaded ${successCount} of ${files.length} files. Failed files: ${failedFiles.map(f => f.split(' (')[0]).join(', ')}`);
+        }
+        
+        return;
+      } catch (err) {
+        // User cancelled or API not available, fall back to standard download
+        if ((err as Error).name !== 'AbortError') {
+          console.warn('File picker failed, using fallback:', err);
+        }
+      }
+    }
+    
+    // Fallback: Standard download
     const url = URL.createObjectURL(zipBlob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `decoded-files-${Date.now()}.zip`;
+    a.download = zipFilename;
     a.style.display = 'none';
     document.body.appendChild(a);
     a.click();
