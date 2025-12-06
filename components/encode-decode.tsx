@@ -360,19 +360,32 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
     });
   };
 
-  const handleDownloadAll = () => {
+  const handleDownloadAll = async () => {
     if (!decodedData?.files.length) return;
     
     const fileCount = decodedData.files.length;
-    downloadService.downloadAll(decodedData.files);
-    // Clear all data after download - complete reset
-    setEncodedBase64('');
-    setBase64Input('');
-    setDecodedData(null);
-    toast({
-      title: "All files downloaded",
-      description: `${fileCount} files downloaded successfully`,
-    });
+    
+    try {
+      await downloadService.downloadAll(decodedData.files);
+      
+      // Clear all data after download - complete reset
+      setEncodedBase64('');
+      setBase64Input('');
+      setDecodedData(null);
+      
+      toast({
+        title: "All files downloaded",
+        description: fileCount === 1 
+          ? `${decodedData.files[0].name} downloaded successfully`
+          : `${fileCount} files packaged as ZIP and downloaded successfully`,
+      });
+    } catch (error) {
+      toast({
+        title: "Download failed",
+        description: error instanceof Error ? error.message : "Failed to download files",
+        variant: "destructive",
+      });
+    }
   };
 
   // Drag and drop handlers

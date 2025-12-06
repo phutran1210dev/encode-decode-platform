@@ -3,7 +3,7 @@ import { downloadFile as downloadFileUtil, downloadAllFiles as downloadAllFilesU
 
 export interface IDownloadService {
   downloadSingle(file: FileData): void;
-  downloadAll(files: readonly FileData[]): void;
+  downloadAll(files: readonly FileData[]): Promise<void>;
 }
 
 // Open/Closed Principle: Open for extension, closed for modification
@@ -14,9 +14,9 @@ export class DownloadService implements IDownloadService {
     downloadFileUtil(file.content, file.name, file.isBinary, file.path);
   }
 
-  // Single Responsibility: Handle multiple files download
-  downloadAll(files: readonly FileData[]): void {
-    downloadAllFilesUtil(files);
+  // Single Responsibility: Handle multiple files download as ZIP
+  async downloadAll(files: readonly FileData[]): Promise<void> {
+    await downloadAllFilesUtil(files);
   }
 }
 

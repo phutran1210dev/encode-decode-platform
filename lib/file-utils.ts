@@ -373,10 +373,67 @@ export const downloadFile = (content: string, filename: string, isBinary: boolea
   }
 };
 
-export const downloadAllFiles = (files: readonly FileData[]) => {
-  files.forEach(file => {
-    downloadFile(file.content, file.name, file.isBinary, file.path);
-  });
+export const downloadAllFiles = async (files: readonly FileData[]) => {
+  if (!files || files.length === 0) {
+    throw new ValidationError('No files to download');
+  }
+  
+  // If only one file, download directly
+  if (files.length === 1) {
+    downloadFile(files[0].content, files[0].name, files[0].isBinary, files[0].path);
+    return;
+  }
+  
+  // Multiple files: create ZIP archive
+  try {
+    const zip = new JSZip();
+    
+    for (const file of files) {
+      try {
+        if (file.isBinary && file.content.startsWith('data:')) {
+          // Handle binary files stored as data URLs
+          const matches = file.content.match(/^data:([^;]+);base64,(.+)$/);
+          if (matches) {
+            const base64Data = matches[2];
+            // Add to ZIP with path to preserve directory structure
+            const filePath = file.path || file.name;
+            zip.file(filePath, base64Data, { base64: true });
+          }
+        } else {
+          // Handle text files
+          const filePath = file.path || file.name;
+          zip.file(filePath, file.content);
+        }
+      } catch (fileError) {
+        // Skip files that fail to process
+        console.warn(`Failed to add file ${file.name} to ZIP:`, fileError);
+      }
+    }
+    
+    // Generate ZIP file
+    const zipBlob = await zip.generateAsync({ 
+      type: 'blob',
+      compression: 'DEFLATE',
+      compressionOptions: { level: 6 }
+    });
+    
+    // Download ZIP
+    const url = URL.createObjectURL(zipBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `decoded-files-${Date.now()}.zip`;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new FileProcessingError(`Failed to create ZIP archive: ${error.message}`);
+    }
+    throw new FileProcessingError('Failed to create ZIP archive: unknown error');
+  }
 };
 
 export const copyToClipboard = async (text: string): Promise<void> => {

@@ -359,7 +359,7 @@ export function QRCodeGenerator({ data, disabled = false }: QRCodeGeneratorProps
               {/* Alternate method for large files */}
               {data.length > 7000 && (
                 <div className="text-xs font-mono text-green-400/60 pt-2 border-t border-green-500/20">
-                  💡 Tip: Use "Download All Files" below to transfer to another device
+                  💡 Tip: Use &quot;Download All Files&quot; below to transfer to another device
                 </div>
               )}
             </div>
