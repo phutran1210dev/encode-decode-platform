@@ -16,6 +16,10 @@ import {
   type IDownloadService,
   type IImageService
 } from '@/lib/services';
+import { 
+  uploadEncodedData, 
+  getUploadMethodDescription 
+} from '@/lib/services/upload-strategy.service';
 
 interface EncodeDecodeProps {
   autoFillData?: string;
@@ -290,83 +294,39 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
       // Encode files to base64 (for non-ZIP files)
       const encoded = fileProcessingService.encodeFiles(filesToEncode);
       
-      // Check if data is too large for Supabase (>2MB)
+      // Use smart upload strategy (automatically selects best method)
       const encodedSizeBytes = new Blob([encoded]).size;
-      const maxSupabaseSize = 2 * 1024 * 1024; // 2MB limit for safe Supabase storage
+      const sizeMB = (encodedSizeBytes / 1024 / 1024).toFixed(2);
       
-      if (encodedSizeBytes > maxSupabaseSize) {
-        // Use blob storage for large data
-        console.log(`Data size (${(encodedSizeBytes / 1024 / 1024).toFixed(2)}MB) exceeds Supabase limit, using blob storage`);
+      console.log(`[Encode] Data size: ${sizeMB}MB, selecting optimal upload method...`);
+      
+      try {
+        const uploadResult = await uploadEncodedData(encoded, {
+          fileCount: filesToEncode.length,
+          fileName: `encoded-${Date.now()}.bin`
+        });
         
-        try {
-          const blobResponse = await fetch('/api/upload-blob-client', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              data: encoded,
-              fileName: `encoded-${Date.now()}.bin`,
-            })
-          });
-          
-          if (!blobResponse.ok) {
-            throw new Error('Failed to upload to blob storage');
-          }
-          
-          const blobResult = await blobResponse.json();
-          
-          // Store blob URL instead
-          setEncodedBase64(`BLOB:${blobResult.url}`);
-          
-          toast({
-            title: "✅ Encoding successful",
-            description: `${filesToEncode.length} file(s) encoded (${(encodedSizeBytes / 1024 / 1024).toFixed(2)}MB). Ready to share via QR.`,
-            duration: 5000
-          });
-        } catch (blobError) {
-          throw new Error(`Failed to upload large data to blob storage: ${blobError instanceof Error ? blobError.message : 'Unknown error'}`);
-        }
-      } else {
-        // Save to Supabase database for smaller data (prevents UI lag)
-        try {
-          const saveResponse = await fetch('/api/save-encoded', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              data: encoded,
-              fileCount: filesToEncode.length,
-              totalSize: encoded.length
-            })
-          });
-          
-          if (!saveResponse.ok) {
-            throw new Error('Failed to save to database');
-          }
-          
-          const saveResult = await saveResponse.json();
-          
-          // Store only the ID (lightweight, no UI lag!)
-          setEncodedBase64(`DB:${saveResult.id}`);
-          
-          toast({
-            title: "✅ Encoding successful",
-            description: `${filesToEncode.length} file(s) encoded and saved. Ready to share via QR.`,
-            duration: 5000
-          });
-        } catch (saveError) {
-          console.error('Database save error:', saveError);
-          
-          // Fallback: Store locally if database fails
-          setEncodedBase64(encoded);
-          
-          toast({
-            title: "⚠️ Encoding successful (Local)",
-            description: `Saved locally. Database unavailable.`,
-            variant: "destructive",
-            duration: 6000
-          });
-        }
+        setEncodedBase64(uploadResult.url);
+        
+        const methodDesc = getUploadMethodDescription(uploadResult.method);
+        
+        toast({
+          title: "✅ Encoding successful",
+          description: `${filesToEncode.length} file(s) encoded (${sizeMB}MB) • ${methodDesc}`,
+          duration: 5000
+        });
+      } catch (uploadError) {
+        console.error('Upload error:', uploadError);
+        
+        // Fallback: Store locally if all upload methods fail
+        setEncodedBase64(encoded);
+        
+        toast({
+          title: "⚠️ Encoding successful (Local)",
+          description: `Saved locally. Upload services unavailable.`,
+          variant: "destructive",
+          duration: 6000
+        });
       }
     } catch (error) {
       toast({

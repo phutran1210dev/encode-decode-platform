@@ -11,6 +11,18 @@
     },
     "app/api/qr/route.ts": {
       "maxDuration": 60
+    },
+    "app/api/upload-supabase/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/upload-s3/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/upload-blob/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/save-encoded/route.ts": {
+      "maxDuration": 60
     }
   },
   "headers": [

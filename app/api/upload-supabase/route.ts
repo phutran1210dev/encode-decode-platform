@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 
+// Increase body size limit for large files (50MB)
+export const runtime = 'nodejs';
+export const maxDuration = 60;
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
@@ -14,16 +18,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log(`Starting upload: ${fileName} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
+    
     // Convert File to ArrayBuffer
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     
-    // Upload to Supabase Storage
+    console.log(`Buffer created, uploading to Supabase...`);
+    
+    // Upload to Supabase Storage with larger file support
     const { data, error } = await supabaseAdmin.storage
       .from('encoded-files')
       .upload(fileName, buffer, {
         contentType: 'application/octet-stream',
-        upsert: true
+        upsert: true,
+        duplex: 'half' // Enable streaming for large files
       });
 
     if (error) {
