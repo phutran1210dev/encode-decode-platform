@@ -228,30 +228,32 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
         try {
           console.log(`  📤 Uploading to: ${fileName}`);
           
-          // Use S3 multipart upload for better performance with large files
+          // Upload directly using Blob storage (more reliable than S3)
           const formData = new FormData();
           formData.append('file', rawFile);
           formData.append('fileName', fileName);
           
-          const uploadResponse = await fetch('/api/upload-s3', {
+          const uploadResponse = await fetch('/api/upload-blob', {
             method: 'POST',
             body: formData,
           });
           
+          // Read response text first
+          const responseText = await uploadResponse.text();
+          
           if (!uploadResponse.ok) {
-            let errorMessage = 'Upload failed';
+            let errorMessage = `Upload failed (${uploadResponse.status})`;
             try {
-              const error = await uploadResponse.json();
+              const error = JSON.parse(responseText);
               errorMessage = error.details || error.error || errorMessage;
             } catch (e) {
-              // Response is not JSON (might be HTML error page)
-              const text = await uploadResponse.text();
-              errorMessage = `Server error: ${uploadResponse.status} - ${text.substring(0, 200)}`;
+              // Response is not JSON (HTML error page)
+              errorMessage = `Server error: ${uploadResponse.status} - ${responseText.substring(0, 200)}`;
             }
             throw new Error(errorMessage);
           }
           
-          const uploadResult = await uploadResponse.json();
+          const uploadResult = JSON.parse(responseText);
           
           console.log(`  ✅ Upload successful: ${uploadResult.path}`);
           console.log(`  🔗 Public URL: ${uploadResult.url}`);
