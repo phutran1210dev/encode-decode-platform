@@ -15,9 +15,8 @@ export interface UploadResult {
  * Size thresholds for different upload methods
  */
 const THRESHOLDS = {
-  DATABASE: 2 * 1024 * 1024,      // 2MB - Use Supabase database
-  BLOB_STANDARD: 10 * 1024 * 1024, // 10MB - Use Vercel Blob
-  S3_MULTIPART: 20 * 1024 * 1024,  // 20MB+ - Use S3 multipart upload
+  DATABASE: 2 * 1024 * 1024,      // 2MB - Embed in Supabase database
+  STORAGE: 45 * 1024 * 1024,      // 45MB - Use Supabase Storage (max safe limit)
 } as const;
 
 /**
@@ -26,10 +25,8 @@ const THRESHOLDS = {
 export function selectUploadMethod(dataSizeBytes: number): UploadMethod {
   if (dataSizeBytes <= THRESHOLDS.DATABASE) {
     return 'database';
-  } else if (dataSizeBytes <= THRESHOLDS.BLOB_STANDARD) {
-    return 'blob';
   } else {
-    return 's3-multipart';
+    return 'blob'; // Use Supabase Storage for large files
   }
 }
 
@@ -95,38 +92,9 @@ async function uploadToDatabase(
 }
 
 /**
- * Upload to Vercel Blob storage (2-10MB)
+ * Upload to Supabase Storage (2MB+)
  */
 async function uploadToBlob(
-  encoded: string,
-  options: { fileName?: string }
-): Promise<UploadResult> {
-  const response = await fetch('/api/upload-blob-client', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      data: encoded,
-      fileName: options.fileName || `encoded-${Date.now()}.bin`,
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error('Failed to upload to blob storage');
-  }
-
-  const result = await response.json();
-
-  return {
-    url: `BLOB:${result.url}`,
-    method: 'blob',
-    size: encoded.length,
-  };
-}
-
-/**
- * Upload to Supabase S3 with multipart (20MB+)
- */
-async function uploadToS3(
   encoded: string,
   options: { fileName?: string }
 ): Promise<UploadResult> {
@@ -136,17 +104,34 @@ async function uploadToS3(
   formData.append('file', blob);
   formData.append('fileName', options.fileName || `encoded-${Date.now()}.bin`);
 
-  const response = await fetch('/api/upload-s3', {
+  const response = await fetch('/api/upload-supabase', {
     method: 'POST',
     body: formData,
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.details || 'Failed to upload to S3 storage');
+    const errorText = await response.text();
+    throw new Error(`Failed to upload to storage: ${errorText}`);
   }
 
   const result = await response.json();
+
+  return {
+    url: `DB:${result.id}`,
+    method: 'blob',
+    size: encoded.length,
+  };
+}
+
+/**
+ * Upload to Supabase S3 with multipart (DEPRECATED - redirects to Supabase Storage)
+ */
+async function uploadToS3(
+  encoded: string,
+  options: { fileName?: string }
+): Promise<UploadResult> {
+  // Redirect to Supabase Storage
+  return uploadToBlob(encoded, options);
 
   return {
     url: `S3:${result.url}`,
