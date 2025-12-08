@@ -256,14 +256,14 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
           const uploadResult = JSON.parse(responseText);
           
           console.log(`  ✅ Upload successful: ${uploadResult.path}`);
-          console.log(`  🔗 Public URL: ${uploadResult.url}`);
+          console.log(`  🔗 Database ID: ${uploadResult.id}`);
           
-          // Store with FILE: prefix to indicate direct file download
-          const fileUrl = `FILE:${uploadResult.url}:${rawFile.name}`;
+          // Store with DB: prefix (unified format for all uploads)
+          const dataId = `DB:${uploadResult.id}`;
           
           // Update state
           flushSync(() => {
-            setEncodedBase64(fileUrl);
+            setEncodedBase64(dataId);
           });
           
           // Dismiss upload toast
@@ -272,11 +272,11 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
           // Show success toast
           toast({
             title: "✅ ZIP uploaded successfully",
-            description: `${rawFile.name} (${(rawFile.size / 1024 / 1024).toFixed(2)}MB) • Direct download link created`,
+            description: `${rawFile.name} (${(rawFile.size / 1024 / 1024).toFixed(2)}MB) • ID: ${uploadResult.id}`,
             duration: 5000
           });
           
-          console.log(`✅ ZIP upload complete - File URL ready`);
+          console.log(`✅ ZIP upload complete - Data ID: ${dataId}`);
           
           // Return to exit ZIP handling
           return;
@@ -350,40 +350,8 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
       
       let dataTodecode = base64Input.trim();
       
-      // Check if it's a blob storage URL reference
-      if (dataTodecode.startsWith('BLOB:')) {
-        const blobUrl = dataTodecode.replace('BLOB:', '');
-        
-        try {
-          const blobResponse = await fetch(blobUrl);
-          
-          if (!blobResponse.ok) {
-            throw new Error('Blob data not found or expired');
-          }
-          
-          dataTodecode = await blobResponse.text();
-          
-          toast({
-            title: "📥 Data retrieved from blob storage",
-            description: `Large file loaded successfully`,
-            duration: 3000
-          });
-          
-          // Delete blob after loading (cleanup) - don't wait
-          setTimeout(() => {
-            fetch('/api/delete-blob', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ url: blobUrl })
-            }).catch(err => console.error('Failed to delete blob:', err));
-          }, 1000);
-        } catch (blobError) {
-          console.error('Blob fetch error:', blobError);
-          throw new Error('Failed to retrieve data from blob storage. It may have expired.');
-        }
-      }
-      // Check if it's a database ID reference
-      else if (dataTodecode.startsWith('DB:')) {
+      // Check if it's a database ID reference (unified format)
+      if (dataTodecode.startsWith('DB:')) {
         const id = dataTodecode.replace('DB:', '');
         
         try {
@@ -394,6 +362,43 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
           }
           
           const fetchResult = await fetchResponse.json();
+          
+          // Check if it's a storage file (large file)
+          if (fetchResult.type === 'storage') {
+            toast({
+              title: "📥 Downloading large file...",
+              description: `${fetchResult.fileName} (${(fetchResult.totalSize / 1024 / 1024).toFixed(2)}MB)`,
+              duration: 3000
+            });
+            
+            // Download file directly from storage
+            const storageResponse = await fetch(fetchResult.url);
+            if (!storageResponse.ok) {
+              throw new Error('File not found in storage');
+            }
+            
+            const blob = await storageResponse.blob();
+            const downloadUrl = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = downloadUrl;
+            link.download = fetchResult.fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(downloadUrl);
+            
+            toast({
+              title: "✅ Download started",
+              description: `${fetchResult.fileName} is downloading`,
+              duration: 5000
+            });
+            
+            // Don't continue to decode - this was a direct download
+            setIsDecoding(false);
+            return;
+          }
+          
+          // Otherwise it's embedded data
           dataTodecode = fetchResult.data;
           
           toast({

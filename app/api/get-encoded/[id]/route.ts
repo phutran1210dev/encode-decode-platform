@@ -18,7 +18,7 @@ export async function GET(
     // Fetch encoded data from Supabase
     const { data, error } = await supabaseAdmin
       .from('encoded_files')
-      .select('data, file_count, total_size, created_at, access_count')
+      .select('data, storage_path, storage_url, file_name, file_count, total_size, created_at, access_count')
       .eq('id', id)
       .single();
 
@@ -30,7 +30,26 @@ export async function GET(
       );
     }
 
-    // Log data integrity check
+    // Update access count
+    await supabaseAdmin
+      .from('encoded_files')
+      .update({ access_count: (data.access_count || 0) + 1 })
+      .eq('id', id);
+
+    // If this is a storage file, return download URL
+    if (data.storage_url) {
+      console.log(`Storage file requested: ${id} -> ${data.storage_url}`);
+      return NextResponse.json({
+        type: 'storage',
+        url: data.storage_url,
+        fileName: data.file_name,
+        fileCount: data.file_count,
+        totalSize: data.total_size,
+        accessCount: (data.access_count || 0) + 1,
+      });
+    }
+
+    // Otherwise return embedded data
     const dataLength = data.data?.length || 0;
     const expectedSize = data.total_size || 0;
     console.log(`Encoded data retrieved: ${id}`, {
@@ -40,13 +59,8 @@ export async function GET(
       dataTruncated: dataLength < expectedSize,
     });
 
-    // Update access count
-    await supabaseAdmin
-      .from('encoded_files')
-      .update({ access_count: (data.access_count || 0) + 1 })
-      .eq('id', id);
-
     return NextResponse.json({
+      type: 'data',
       data: data.data,
       fileCount: data.file_count,
       totalSize: data.total_size,

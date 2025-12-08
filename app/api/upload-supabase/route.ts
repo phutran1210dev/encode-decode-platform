@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     
-    console.log(`Buffer created, uploading to Supabase...`);
+    console.log(`Buffer created, uploading to Supabase Storage...`);
     
     // Upload to Supabase Storage with larger file support
     const { data, error } = await supabaseAdmin.storage
@@ -48,9 +48,35 @@ export async function POST(request: NextRequest) {
       .from('encoded-files')
       .getPublicUrl(data.path);
 
-    console.log(`File uploaded to Supabase: ${publicUrl}`);
+    console.log(`File uploaded to Supabase Storage: ${publicUrl}`);
+    
+    // Save metadata to database and get DB ID
+    const { data: dbRecord, error: dbError } = await supabaseAdmin
+      .from('encoded_files')
+      .insert({
+        storage_path: data.path,
+        storage_url: publicUrl,
+        file_name: fileName,
+        total_size: file.size,
+        file_count: 1,
+      })
+      .select('id')
+      .single();
+
+    if (dbError) {
+      console.error('Database insert error:', dbError);
+      // Delete uploaded file if database insert fails
+      await supabaseAdmin.storage.from('encoded-files').remove([data.path]);
+      return NextResponse.json(
+        { error: `Failed to save metadata: ${dbError.message}` },
+        { status: 500 }
+      );
+    }
+
+    console.log(`Database record created with ID: ${dbRecord.id}`);
 
     return NextResponse.json({
+      id: dbRecord.id,
       url: publicUrl,
       size: file.size,
       path: data.path,

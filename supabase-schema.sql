@@ -3,12 +3,16 @@
 
 create table if not exists encoded_files (
   id uuid primary key default gen_random_uuid(),
-  data text not null,
+  data text,
+  storage_path text,
+  storage_url text,
+  file_name text,
   file_count integer default 1,
   total_size bigint,
   created_at timestamp with time zone default now(),
   expires_at timestamp with time zone default (now() + interval '24 hours'),
-  access_count integer default 0
+  access_count integer default 0,
+  constraint check_data_or_storage check (data is not null or storage_path is not null)
 );
 
 -- Enable Row Level Security
