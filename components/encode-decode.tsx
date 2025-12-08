@@ -200,9 +200,18 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
          filesToEncode[0].type === 'application/zip' ||
          filesToEncode[0].type === 'application/x-zip-compressed');
       
+      console.log('Encode check:', {
+        fileCount: filesToEncode.length,
+        fileName: filesToEncode[0]?.name,
+        fileType: filesToEncode[0]?.type,
+        isZipFile
+      });
+      
       if (isZipFile) {
         // Use raw File object instead of base64 conversion (much faster!)
         const rawFile = rawFiles?.[0];
+        
+        console.log('ZIP detected, rawFile:', rawFile ? 'exists' : 'missing');
         
         if (!rawFile) {
           throw new Error('Original file not found. Please re-select the file.');
@@ -278,9 +287,11 @@ export default function EncodeDecode({ autoFillData }: EncodeDecodeProps = {}) {
           
           console.log(`✅ ZIP upload complete - Data ID: ${dataId}`);
           
-          // Return to exit ZIP handling
+          // Exit encode function after ZIP upload
+          setIsEncoding(false);
           return;
         } catch (uploadError) {
+          console.error('ZIP upload error:', uploadError);
           // Dismiss upload toast on error
           uploadToast.dismiss();
           throw uploadError;
