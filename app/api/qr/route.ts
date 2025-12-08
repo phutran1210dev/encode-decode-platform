@@ -118,6 +118,40 @@ export async function POST(request: NextRequest) {
           }
         });
       }
+      
+      // Handle SUPABASE: or BLOB: prefix (storage URLs)
+      if (trimmedData.startsWith('SUPABASE:') || trimmedData.startsWith('BLOB:')) {
+        const storageUrl = trimmedData.replace('SUPABASE:', '').replace('BLOB:', '');
+        console.log(`Generating QR for storage URL: ${storageUrl.substring(0, 50)}...`);
+        
+        let qrCodeDataURL: string;
+        try {
+          qrCodeDataURL = await QRCode.toDataURL(storageUrl, {
+            width: 400,
+            margin: 1,
+            color: {
+              dark: '#00ff00',
+              light: '#000000'
+            },
+            errorCorrectionLevel: 'M'
+          });
+        } catch (qrError) {
+          console.error('QR generation error:', qrError);
+          return NextResponse.json(
+            { error: 'Failed to generate QR code' }, 
+            { status: 500 }
+          );
+        }
+        
+        return NextResponse.json({
+          qrCode: qrCodeDataURL,
+          url: storageUrl,
+          mode: 'storage',
+          metadata: {
+            timestamp: Date.now()
+          }
+        });
+      }
     }
     
     // Handle direct file download (ZIP files, etc.) - legacy mode parameter

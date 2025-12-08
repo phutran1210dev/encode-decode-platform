@@ -37,13 +37,9 @@ export function QRCodeGenerator({ data, disabled = false }: QRCodeGeneratorProps
       const isFile = data.startsWith('FILE:');
       const isDB = data.startsWith('DB:');
       
-      // Handle database-stored encoded data (ID-based)
-      if (isDB) {
-        const id = data.replace('DB:', '');
-        console.log(`Generating QR for database-stored data: ${id}`);
-        
-        // Create decode URL with database ID
-        const decodeUrl = `${window.location.origin}/decode?data=${encodeURIComponent(data)}`;
+      // For all prefixed data (DB:, FILE:, SUPABASE:, BLOB:), let API handle it
+      if (isDB || isFile || isSupabase || isBlob) {
+        console.log(`Generating QR for prefixed data: ${data.substring(0, 50)}...`);
         
         const response = await fetch('/api/qr', {
           method: 'POST',
@@ -51,7 +47,7 @@ export function QRCodeGenerator({ data, disabled = false }: QRCodeGeneratorProps
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            data: decodeUrl
+            data: data
           })
         });
         
@@ -64,88 +60,25 @@ export function QRCodeGenerator({ data, disabled = false }: QRCodeGeneratorProps
         setQrCode(result.qrCode);
         setQrUrl(result.url);
         
+        const typeLabels: Record<string, string> = {
+          'DB:': 'Cloud Database',
+          'FILE:': 'Direct Download', 
+          'SUPABASE:': 'Cloud Storage',
+          'BLOB:': 'Cloud Storage'
+        };
+        
+        const prefix = Object.keys(typeLabels).find(p => data.startsWith(p)) || 'Cloud';
+        
         toast({
-          title: "✅ QR Code generated (Cloud Database)",
-          description: `Scan QR to auto-decode from cloud. Valid for 24 hours.`,
+          title: `✅ QR Code generated (${typeLabels[prefix]})`,
+          description: `Scan QR from any device. Valid for 24 hours.`,
           duration: 6000
         });
         
         return;
       }
       
-      if (isSupabase || isBlob) {
-        const storageUrl = data.replace('SUPABASE:', '').replace('BLOB:', '');
-        console.log(`Using pre-uploaded file: ${storageUrl}`);
-        
-        // Generate QR code with storage URL
-        const response = await fetch('/api/qr', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            data: '',
-            blobUrl: storageUrl,
-            baseUrl: window.location.origin
-          })
-        });
-        
-        const result = await response.json();
-        
-        if (!response.ok) {
-          throw new Error(result.error || 'Failed to generate QR code');
-        }
-        
-        setQrCode(result.qrCode);
-        setQrUrl(result.url);
-        
-        toast({
-          title: "✅ QR Code generated (Cloud Storage)",
-          description: `Scan QR from any device to download file.`,
-          duration: 6000
-        });
-        
-        return;
-      }
-      
-      // Handle direct file downloads (e.g., ZIP files)
-      if (isFile) {
-        const parts = data.split(':');
-        const fileUrl = parts[1];
-        const fileName = parts[2] || 'file';
-        
-        console.log(`Generating QR for direct file download: ${fileName}`);
-        
-        // Generate QR code with direct download URL
-        const response = await fetch('/api/qr', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            fileUrl: fileUrl,
-            fileName: fileName,
-            mode: 'direct-download'
-          })
-        });
-        
-        const result = await response.json();
-        
-        if (!response.ok) {
-          throw new Error(result.error || 'Failed to generate QR code');
-        }
-        
-        setQrCode(result.qrCode);
-        setQrUrl(result.url);
-        
-        toast({
-          title: "✅ QR Code generated (Direct Download)",
-          description: `Scan QR to download ${fileName} directly`,
-          duration: 6000
-        });
-        
-        return;
-      }
+
       
       const QR_SIZE_LIMIT = 7000;
       
