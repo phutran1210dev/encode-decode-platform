@@ -132,12 +132,6 @@ async function uploadToS3(
 ): Promise<UploadResult> {
   // Redirect to Supabase Storage
   return uploadToBlob(encoded, options);
-
-  return {
-    url: `S3:${result.url}`,
-    method: 's3-multipart',
-    size: blob.size,
-  };
 }
 
 /**
