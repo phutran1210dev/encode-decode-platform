@@ -149,38 +149,43 @@ export function QRCodeGenerator({ data, disabled = false }: QRCodeGeneratorProps
       
       const QR_SIZE_LIMIT = 7000;
       
-      // For large data, upload to blob storage first (client-side upload)
+      // For large data, save to database and use DB:id reference
       if (data.length > QR_SIZE_LIMIT) {
-        console.log(`Data too large (${data.length} chars), uploading to blob storage...`);
+        console.log(`Data too large (${data.length} chars), saving to database...`);
         
         try {
-          // Use Vercel Blob client-side upload
-          const { upload } = await import('@vercel/blob/client');
-          
-          const blob = new Blob([data], { type: 'application/octet-stream' });
-          const fileName = `data-${Date.now()}.bin`;
-          
           toast({
-            title: "⏳ Uploading to cloud...",
-            description: `Uploading ${(data.length / 1024 / 1024).toFixed(2)}MB to cloud storage`,
+            title: "⏳ Saving to cloud...",
+            description: `Saving ${(data.length / 1024 / 1024).toFixed(2)}MB to database`,
           });
           
-          const newBlob = await upload(fileName, blob, {
-            access: 'public',
-            handleUploadUrl: '/api/upload-blob-client',
+          // Save to database
+          const saveResponse = await fetch('/api/save-encoded', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              data: data,
+              fileCount: 1,
+              totalSize: data.length
+            })
           });
           
-          console.log(`Uploaded to blob: ${newBlob.url}`);
+          if (!saveResponse.ok) {
+            throw new Error('Failed to save data to database');
+          }
           
-          // Generate QR code with blob URL
+          const saveResult = await saveResponse.json();
+          console.log(`Saved to database with ID: ${saveResult.id}`);
+          
+          // Generate QR code with DB:id reference
+          const dbReference = `DB:${saveResult.id}`;
           const response = await fetch('/api/qr', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-              data: '', // Empty data, will use blob URL
-              blobUrl: newBlob.url,
+              data: dbReference,
               baseUrl: window.location.origin
             })
           });
